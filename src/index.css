@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFFFFF;
+    color: #37352F;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Notion-style panel surface — replaces the legacy .glass-panel dark token.
+   Kept under the same class name so existing call sites inherit the new look
+   without touching every component file. */
+.glass-panel {
+  background: #FFFFFF;
+  border: 1px solid #E8E7E4;
+  border-radius: 4px;
+}
+
+/* Toast / Dialog entrance animation (replaces tailwindcss-animate dependency) */
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal entrance animation — subtle Notion-like fade+scale */
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-animate {
+  animation: modal-fade-in 0.18s ease-out;
+}
+
+/* Focus-visible style for keyboard accessibility — Notion blue ring */
+*:focus-visible {
+  outline: 2px solid #2F80ED;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Notion-style scrollbar — thin, muted, rounded */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D8D8D5;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B4B4B0;
+}
+
+/* Selection color matching Notion highlight */
+::selection {
+  background-color: #E8F1F4;
+  color: #134E4A;
+}

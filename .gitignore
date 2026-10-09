@@ -1,0 +1,24 @@
+# 依赖
+node_modules/
+__pycache__/
+
+# 构建产物
+dist/
+release/
+*.tsbuildinfo
+
+# 用户运行时数据（本机存档备份、自定义 Steam 路径、自定义游戏）
+Backups/
+custom_paths.txt
+custom_games.json
+
+# 教程视频（大体积二进制素材，不进版本库）
+视频/
+
+# 工具工作区
+.zcode/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log
