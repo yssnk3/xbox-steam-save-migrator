@@ -77,11 +77,66 @@ export interface IdentifiedInfo {
   accountBound?: boolean;
 }
 
+/** Sidecar metadata written next to each backup zip (absent on legacy backups). */
+export interface BackupMeta {
+  gameId: string;
+  platform: 'steam' | 'xbox';
+  sourcePath: string;
+  restoreTargetPath: string;
+  direction: string | null;
+  gameName: string | null;
+  createdAt: string;
+  size: number;
+}
+
 export interface BackupItem {
   fileName: string;
   filePath: string;
   size: number;
   createdAt: string;
+  meta: BackupMeta | null;
+  gameId: string | null;
+  gameName: string | null;
+  platform: 'steam' | 'xbox' | null;
+  direction: string | null;
+  restoreTargetPath: string | null;
+  canAutoRestore: boolean;
+}
+
+/** 一次移植失败的现场信息，喂给 AI 诊断。 */
+export interface FailureContext {
+  stage?: string | null;
+  code?: string | null;
+  error?: string | null;
+  gameId?: string | null;
+  gameName?: string | null;
+  direction?: string | null;
+  steamPath?: string | null;
+  xboxPath?: string | null;
+  sourcePath?: string | null;
+  targetPath?: string | null;
+  verify?: VerifyReport | null;
+  warnings?: string[];
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  baseUrl: string;
+  model: string;
+  timeoutMs: number;
+  apiKeySet: boolean;
+  apiKeyHint: string;
+}
+
+export interface AppSettings {
+  ai: AiSettings;
+  backup: { keepCount: number };
+  storePath: string;
+}
+
+export interface AiExplanation {
+  text: string;
+  model: string;
 }
 
 /** Read-only portability prediction for one direction (dry-run, no writes). */

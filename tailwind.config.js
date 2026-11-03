@@ -32,19 +32,15 @@ export default {
         },
       },
       borderRadius: {
-        card: '12px',
-        btn: '8px',
+        card: '8px',
+        btn: '6px',
       },
       boxShadow: {
         card: '0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
         'card-hover': '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
-        glow: '0 0 0 1px rgba(124,58,237,0.35), 0 4px 20px rgba(124,58,237,0.35)',
-        'glow-soft': '0 0 16px rgba(124,58,237,0.18)',
+        glow: '0 0 0 1px rgba(255,255,255,0.10)',
+        'glow-soft': '0 1px 2px rgba(0,0,0,0.4)',
         glass: '0 8px 32px rgba(0,0,0,0.45)',
-      },
-      backgroundImage: {
-        'brand-gradient': 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)',
-        'page-glow': 'radial-gradient(1200px 600px at 50% -10%, rgba(124,58,237,0.10), transparent 60%)',
       },
     },
   },

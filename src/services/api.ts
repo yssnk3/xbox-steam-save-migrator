@@ -1,13 +1,32 @@
-import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult } from '../types';
+import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult, FailureContext, AppSettings, AiExplanation } from '../types';
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:'
   ? 'http://localhost:3001'
   : '';
 
+/** Failure raised by the backend, carrying the code/context the AI assistant needs. */
+export class ApiError extends Error {
+  code: string | null;
+  context: FailureContext | null;
+  constructor(message: string, code: string | null, context: FailureContext | null) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.context = context;
+  }
+}
+
 async function apiFetch(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, options);
   const data = await res.json();
-  if (!data.success) throw new Error(data.error || 'Request failed');
+  if (!data.success) {
+    // Preserve code + context so callers can branch and feed the AI assistant.
+    throw new ApiError(
+      data.error || 'Request failed',
+      data.code || null,
+      data.context || null,
+    );
+  }
   return data;
 }
 
@@ -280,4 +299,45 @@ export async function checkXboxGameRunning(installLocation: string): Promise<{ r
 
 export async function stopXboxCloudSync(): Promise<XboxCloudSyncStopResult> {
   return apiFetch('/api/xbox/stop-cloud-sync', { method: 'POST' });
+}
+
+// ===== 备份版本化还原 =====
+
+export async function restoreBackupAutoApi(backupPath: string) {
+  return apiFetch('/api/backups/restore-auto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ backupPath }),
+  });
+}
+
+// ===== 设置 =====
+
+export async function fetchSettings(): Promise<{ settings: AppSettings }> {
+  return apiFetch('/api/settings');
+}
+
+export async function saveSettings(patch: {
+  ai?: Partial<{ enabled: boolean; baseUrl: string; model: string; timeoutMs: number; apiKey: string | null }>;
+  backup?: Partial<{ keepCount: number }>;
+}): Promise<{ settings: AppSettings }> {
+  return apiFetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function testAiConnectionApi(): Promise<{ ok: boolean; model: string }> {
+  return apiFetch('/api/settings/test-ai', { method: 'POST' });
+}
+
+// ===== AI 失败诊断 =====
+
+export async function explainFailureApi(context: FailureContext): Promise<AiExplanation> {
+  return apiFetch('/api/ai/explain-failure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ context }),
+  });
 }

@@ -34,3 +34,6 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# 用户设置（含 API Key，绝不入库）
+settings.json

@@ -8,13 +8,15 @@ import { fileURLToPath } from 'url';
 import { scanInstalledGames, resolveAppxInfos, readAppxManifestInfo } from './gameDetector.js';
 import { extractWgsToFolder, parseContainersIndex, parseContainerFolderFiles, updateWgsInPlace, hasExistingWgsStructure } from './wgsEngine.js';
 import { listSteamCloudMirrors, predictSteamToXbox, predictXboxToSteam } from './portability.js';
-import { createBackup, listBackups, restoreBackup, deleteBackup } from './backupManager.js';
+import { createBackup, listBackups, restoreBackup, restoreBackupAuto, deleteBackup, pruneBackups } from './backupManager.js';
 import { addCustomGame, deleteCustomGame, getCustomGames } from './customGamesStore.js';
 import { checkGameRunning, checkPlatformClient, closePlatformClient } from './processCheck.js';
 import { friendlyError } from './errorMessages.js';
 import { identifySavePath, resolveCounterpartPath, findGameById } from './gameIdentifier.js';
 import { enrichGames, steamIconFor } from './steamMetadata.js';
 import { scanXboxLibrary, launchXboxGame, checkXboxGameRunning, stopCloudSync } from './xboxLibrary.js';
+import { getPublicSettings, writeSettings, readSettings } from './settingsStore.js';
+import { explainFailure, testAiConnection, AiError } from './aiAssistant.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -278,6 +280,38 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+
+/**
+ * Failure-context collector.
+ *
+ * Every failure branch in this file returns `{ success: false, error, code? }`,
+ * which is all the UI gets — not enough for the AI assistant to diagnose.
+ * Instead of editing 100+ branches, wrap res.json so any non-2xx or
+ * success:false response is enriched in one place with the request body and a
+ * best-effort game/direction reading. Routes that already supply `context`
+ * keep it untouched.
+ */
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (payload) => {
+    if (payload && typeof payload === 'object' && payload.success === false && !payload.context) {
+      const body = req.body || {};
+      payload.context = {
+        stage: `${req.method} ${req.path}`,
+        code: payload.code || null,
+        error: payload.error || null,
+        gameId: body.gameId || null,
+        direction: body.direction || null,
+        steamPath: body.customSteamPath || body.steamPath || null,
+        xboxPath: body.customXboxPath || body.xboxPath || null,
+        sourcePath: body.sourcePath || null,
+        targetPath: body.targetPath || null,
+      };
+    }
+    return originalJson(payload);
+  };
+  next();
+});
 
 // Serve built frontend static assets from dist/
 const distPath = path.join(__dirname, '../dist');
@@ -638,9 +672,9 @@ app.post('/api/identify-and-migrate', async (req, res) => {
     let backupInfo = null;
     // Always back up the side that is about to be OVERWRITTEN, not the source.
     if (direction === 'xbox_to_steam') {
-      if (fs.existsSync(steamPath)) backupInfo = await createBackup(steamPath, 'identify', 'steam');
+      if (fs.existsSync(steamPath)) backupInfo = await createBackup(steamPath, 'identify', 'steam', { restoreTargetPath: steamPath, direction, gameName: topMatch ? topMatch.name : null });
     } else if (fs.existsSync(xboxPath)) {
-      backupInfo = await createBackup(xboxPath, 'identify', 'xbox');
+      backupInfo = await createBackup(xboxPath, 'identify', 'xbox', { restoreTargetPath: xboxPath, direction, gameName: topMatch ? topMatch.name : null });
     }
 
     const result = direction === 'xbox_to_steam'
@@ -822,7 +856,7 @@ app.post('/api/migrate', async (req, res) => {
       }
 
       if (fs.existsSync(steamPath)) {
-        backupInfo = await createBackup(steamPath, gameId, 'steam');
+        backupInfo = await createBackup(steamPath, gameId, 'steam', { restoreTargetPath: steamPath, direction, gameName: game.name });
       }
 
       const result = extractWgsToFolder(xboxPath, steamPath);
@@ -873,7 +907,7 @@ const renamed = applySteamFileNameNormalization(result.extractedFiles, steamPath
       }
 
       if (fs.existsSync(xboxPath)) {
-        backupInfo = await createBackup(xboxPath, gameId, 'xbox');
+        backupInfo = await createBackup(xboxPath, gameId, 'xbox', { restoreTargetPath: xboxPath, direction, gameName: game.name });
       }
 
       const filesInSteamDir = fs.readdirSync(steamPath)
@@ -1007,6 +1041,58 @@ app.post('/api/backups/open', (req, res) => {
   }
 });
 
+// API: Restore using the directory recorded in the backup's sidecar (one-click rollback).
+app.post('/api/backups/restore-auto', async (req, res) => {
+  try {
+    const { backupPath } = req.body || {};
+    const result = await restoreBackupAuto(backupPath);
+    res.json({ success: true, result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: 设置读写。GET 永不回传 API Key 明文，只回 hint。
+app.get('/api/settings', (req, res) => {
+  try {
+    res.json({ success: true, settings: getPublicSettings() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+app.put('/api/settings', (req, res) => {
+  try {
+    writeSettings(req.body || {});
+    res.json({ success: true, settings: getPublicSettings() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: 测试 AI 连通性（设置页「测试连接」按钮）
+app.post('/api/settings/test-ai', async (req, res) => {
+  try {
+    const result = await testAiConnection();
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const code = err instanceof AiError ? err.code : 'AI_UNKNOWN';
+    res.status(400).json({ success: false, error: friendlyError(err), code });
+  }
+});
+
+// API: AI 失败诊断 — 用户手动触发，输入是一次移植失败的现场上下文。
+app.post('/api/ai/explain-failure', async (req, res) => {
+  try {
+    const context = req.body?.context || {};
+    const result = await explainFailure(context);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    const code = err instanceof AiError ? err.code : 'AI_UNKNOWN';
+    res.status(400).json({ success: false, error: err.message || friendlyError(err), code });
+  }
+});
+
 // API: Manual WGS Extraction
 app.post('/api/manual/extract', (req, res) => {
   const { wgsFolderPath, outputFolderPath } = req.body;
@@ -1054,12 +1140,13 @@ app.post('/api/manual/pack', async (req, res) => {
 
     let backupInfo = null;
     if (fs.existsSync(targetWgsFolderPath)) {
-      backupInfo = await createBackup(targetWgsFolderPath, 'manual-pack', 'xbox');
+      backupInfo = await createBackup(targetWgsFolderPath, 'manual-pack', 'xbox', { restoreTargetPath: targetWgsFolderPath, direction: 'pack', gameName: null });
     }
 
-    const { result, verify } = writeSteamToXbox(files, targetWgsFolderPath, {
+    const { result, verify, refused } = writeSteamToXbox(files, targetWgsFolderPath, {
       packageName: packageName || 'ManualPackage',
     });
+    if (refused) return res.status(400).json({ success: false, code: 'BYTE_INCOMPATIBLE', error: refused });
     res.json({ success: true, backup: backupInfo, verify, result });
   } catch (err) {
     res.status(500).json({ success: false, error: friendlyError(err) });
@@ -1100,7 +1187,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `目标 WGS 目录还没有该游戏自己生成的存档结构。工具不凭文件名猜测并新建容器（那是游戏读不到存档的主要原因），请先启动一次游戏让 Xbox 端生成结构。` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-xbox-xbox', 'xbox');
+        backupInfo = await createBackup(targetPath, 'copy-xbox-xbox', 'xbox', { restoreTargetPath: targetPath, direction: 'xbox_to_xbox', gameName: null });
       }
       const { parseContainersIndexDetailed, parseContainerFolderFiles } = await import('./wgsEngine.js');
       const detailed = parseContainersIndexDetailed(path.join(sourcePath, 'containers.index'));
@@ -1111,7 +1198,8 @@ app.post('/api/copy-save', async (req, res) => {
           if (m.blobPath) inputFiles.push({ fileName: m.logicalFileName, filePath: m.blobPath });
         }
       }
-      const { result, verify } = writeSteamToXbox(inputFiles, targetPath, { byteIncompatible: false });
+      const { result, verify, refused } = writeSteamToXbox(inputFiles, targetPath, { byteIncompatible: false });
+      if (refused) return res.status(400).json({ success: false, code: 'BYTE_INCOMPATIBLE', error: refused });
       return res.json({
         success: true,
         message: `完成 Xbox→Xbox 同端复制（${result.updated.length} 个槽位已写入目标容器）。`,
@@ -1134,7 +1222,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `源目录中没有任何文件：${sourcePath}` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-steam-steam', 'steam');
+        backupInfo = await createBackup(targetPath, 'copy-steam-steam', 'steam', { restoreTargetPath: targetPath, direction: 'steam_to_steam', gameName: null });
       } else {
         fs.mkdirSync(targetPath, { recursive: true });
       }
@@ -1175,7 +1263,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `源 WGS 目录无效或缺少 containers.index：${sourcePath}` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-xbox-steam', 'steam');
+        backupInfo = await createBackup(targetPath, 'copy-xbox-steam', 'steam', { restoreTargetPath: targetPath, direction: 'xbox_to_steam', gameName: null });
       } else {
         fs.mkdirSync(targetPath, { recursive: true });
       }
@@ -1221,9 +1309,10 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `目标 WGS 目录还没有该游戏自己生成的存档结构。工具不凭文件名猜测并新建容器，请先在 Xbox 端启动一次游戏让游戏建立结构。` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-steam-xbox', 'xbox');
+        backupInfo = await createBackup(targetPath, 'copy-steam-xbox', 'xbox', { restoreTargetPath: targetPath, direction: 'steam_to_xbox', gameName: null });
       }
-      const { result, verify } = writeSteamToXbox(inputFiles, targetPath, { byteIncompatible: false });
+      const { result, verify, refused } = writeSteamToXbox(inputFiles, targetPath, { byteIncompatible: false });
+      if (refused) return res.status(400).json({ success: false, code: 'BYTE_INCOMPATIBLE', error: refused });
       return res.json({
         success: true,
         message: `完成 Steam→Xbox 移植（${result.updated.length} 个槽位已写入目标容器）。`,
@@ -1411,7 +1500,7 @@ app.post('/api/manual/migrate', async (req, res) => {
 
       let backupInfo = null;
       if (fs.existsSync(steamPath)) {
-        backupInfo = await createBackup(steamPath, 'manual', 'steam');
+        backupInfo = await createBackup(steamPath, 'manual', 'steam', { restoreTargetPath: steamPath, direction, gameName: null });
       }
 
       const result = extractWgsToFolder(xboxPath, steamPath);
@@ -1469,13 +1558,19 @@ app.post('/api/manual/migrate', async (req, res) => {
 
       let backupInfo = null;
       if (fs.existsSync(xboxPath)) {
-        backupInfo = await createBackup(xboxPath, 'manual', 'xbox');
+        backupInfo = await createBackup(xboxPath, 'manual', 'xbox', { restoreTargetPath: xboxPath, direction, gameName: null });
       }
 
       const pkgName = inferPackageName(xboxPath);
-      const { result, verify } = writeSteamToXbox(filesInSteamDir, xboxPath, {
+      const { result, verify, refused } = writeSteamToXbox(filesInSteamDir, xboxPath, {
         packageName: pkgName,
       });
+      // writeSteamToXbox refuses to write when the target has no game-generated
+      // WGS structure. Ignoring `refused` here reported "写入成功" with verify:null,
+      // which graded as needs-review and hid the fact that nothing was written.
+      if (refused) {
+        return res.status(400).json({ success: false, code: 'BYTE_INCOMPATIBLE', error: refused });
+      }
 
       return res.json({
         success: true,

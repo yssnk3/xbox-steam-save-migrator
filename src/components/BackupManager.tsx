@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { BackupItem } from '../types';
-import { fetchBackups, restoreBackupApi, deleteBackupApi, openBackupFolder, pickFolder } from '../services/api';
+import { fetchBackups, restoreBackupApi, restoreBackupAutoApi, deleteBackupApi, openBackupFolder, pickFolder } from '../services/api';
 import { useToast } from './Toast';
 import { ConfirmDialog, ConfirmDialogConfig } from './ConfirmDialog';
-import { ShieldCheck, RefreshCw, FileArchive, RotateCcw, Trash2, Folder } from 'lucide-react';
+import { ShieldCheck, RefreshCw, FileArchive, RotateCcw, Trash2, Folder, CornerDownLeft } from 'lucide-react';
 
 interface BackupManagerProps {
   onAddLog: (msg: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -15,6 +15,45 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/** Which side the backup protects — shown so users know what restoring will overwrite. */
+const PLATFORM_LABEL: Record<string, string> = { steam: 'Steam', xbox: 'Xbox' };
+
+const DIRECTION_LABEL: Record<string, string> = {
+  xbox_to_steam: 'Xbox → Steam',
+  steam_to_xbox: 'Steam → Xbox',
+  xbox_to_xbox: 'Xbox 同端复制',
+  steam_to_steam: 'Steam 同端复制',
+  pack: '手动打包',
+};
+
+interface VersionGroup {
+  key: string;
+  title: string;
+  subtitle: string;
+  items: BackupItem[];
+}
+
+/** Group backups by game (or by origin for legacy/unknown ones), newest first = version list. */
+function groupBackups(backups: BackupItem[]): VersionGroup[] {
+  const groups = new Map<string, VersionGroup>();
+  for (const b of backups) {
+    const key = b.gameId || '__unknown__';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        title: b.gameName || (b.gameId && b.gameId !== 'identify' ? b.gameId : '未识别来源'),
+        subtitle: b.meta ? '含元数据，可一键还原' : '旧版备份（无元数据）',
+        items: [],
+      });
+    }
+    groups.get(key)!.items.push(b);
+  }
+  // Newest group first, and versions within a group are already newest-first.
+  return [...groups.values()].sort(
+    (a, b) => new Date(b.items[0].createdAt).getTime() - new Date(a.items[0].createdAt).getTime(),
+  );
 }
 
 export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
@@ -29,8 +68,8 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
     try {
       const data = await fetchBackups();
       setBackups(data);
-    } catch (err: any) {
-      toast(`加载备份列表失败: ${err.message}`, 'error');
+    } catch (err) {
+      toast(`加载备份列表失败: ${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -40,36 +79,59 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
     loadBackups();
   }, []);
 
-  const handleRestore = async (item: BackupItem) => {
+  /** One-click rollback to the recorded target directory. */
+  const handleAutoRestore = async (item: BackupItem) => {
+    setConfirmConfig({
+      title: '还原到原位置',
+      message: `即将把 ${item.fileName} 解压回它备份时的目录：\n\n${item.restoreTargetPath}\n\n这会覆盖该目录中的同名文件，等同于撤销那一次移植。是否继续？`,
+      confirmLabel: '还原',
+      variant: 'warning',
+    });
+    setConfirmAction(async () => {
+      try {
+        await restoreBackupAutoApi(item.filePath);
+        onAddLog(`已还原到原位置：${item.fileName} → ${item.restoreTargetPath}`, 'success');
+        toast('还原成功，存档已回到移植前状态', 'success');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        onAddLog(`还原失败: ${msg}`, 'error');
+        toast(`还原失败: ${msg}`, 'error');
+      }
+    });
+  };
+
+  /** Legacy path: no sidecar, so the user picks the destination. */
+  const handleManualRestore = async (item: BackupItem) => {
     try {
       const targetPath = await pickFolder();
       if (!targetPath) return;
 
       setConfirmConfig({
-        title: '确认恢复备份',
-        message: `即将把备份 ${item.fileName} 解压恢复到目录：\n${targetPath}\n\n这会覆盖目标目录中的同名文件。是否继续？`,
-        confirmLabel: '恢复',
+        title: '选择目录还原',
+        message: `该备份没有记录原目标路径。\n\n即将把 ${item.fileName} 解压到：\n${targetPath}\n\n这会覆盖目标目录中的同名文件。是否继续？`,
+        confirmLabel: '还原',
         variant: 'warning',
       });
       setConfirmAction(async () => {
         try {
           await restoreBackupApi(item.filePath, targetPath);
-          onAddLog(`备份恢复成功：${item.fileName} → ${targetPath}`, 'success');
-          toast('备份恢复成功！', 'success');
-        } catch (err: any) {
-          onAddLog(`备份恢复失败: ${err.message}`, 'error');
-          toast(`恢复失败: ${err.message}`, 'error');
+          onAddLog(`备份已还原：${item.fileName} → ${targetPath}`, 'success');
+          toast('备份还原成功', 'success');
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          onAddLog(`还原失败: ${msg}`, 'error');
+          toast(`还原失败: ${msg}`, 'error');
         }
       });
-    } catch (err: any) {
-      toast(`无法选择目录: ${err.message}`, 'error');
+    } catch (err) {
+      toast(`无法选择目录: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
   };
 
   const handleDelete = async (item: BackupItem) => {
     setConfirmConfig({
       title: '确认删除备份',
-      message: `即将永久删除备份文件 ${item.fileName}。\n此操作不可撤销。是否继续？`,
+      message: `即将永久删除备份文件 ${item.fileName}。\n此操作不可撤销，删除后无法再还原到该版本。是否继续？`,
       confirmLabel: '删除',
       variant: 'danger',
     });
@@ -79,9 +141,10 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
         onAddLog(`备份已删除：${item.fileName}`, 'info');
         toast('备份已删除', 'success');
         loadBackups();
-      } catch (err: any) {
-        onAddLog(`删除备份失败: ${err.message}`, 'error');
-        toast(`删除失败: ${err.message}`, 'error');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        onAddLog(`删除备份失败: ${msg}`, 'error');
+        toast(`删除失败: ${msg}`, 'error');
       }
     });
   };
@@ -89,8 +152,8 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
   const handleOpenFolder = async (item: BackupItem) => {
     try {
       await openBackupFolder(item.filePath);
-    } catch (err: any) {
-      toast(`无法打开目录: ${err.message}`, 'error');
+    } catch (err) {
+      toast(`无法打开目录: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
   };
 
@@ -100,87 +163,126 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
     setConfirmAction(null);
   };
 
+  const groups = groupBackups(backups);
+
   return (
-    <div className="space-y-6">
-      
-      {/* Header Info */}
-      <div className="glass-panel p-6 rounded-2xl border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-card bg-ink-surface/[0.06] border border-white/[0.1] flex items-center justify-center text-zinc-300">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
+    <div className="space-y-4">
+
+      <div className="panel px-5 py-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="w-4 h-4 text-ink-muted shrink-0" />
           <div>
-            <h2 className="font-bold text-base text-white">安全备份管理中心</h2>
-            <p className="text-xs text-zinc-400">
-              每次执行存档移植前自动创建的 ZIP 压缩归档，可在此恢复或删除
+            <h2 className="text-[15px] font-semibold text-ink-text leading-tight">备份与版本还原</h2>
+            <p className="text-[12px] text-ink-muted mt-0.5">
+              每次移植前自动归档被覆盖的一方。有元数据的备份可一键还原到移植前状态
             </p>
           </div>
         </div>
-
-        <button
-          onClick={loadBackups}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 transition-all"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${loading ? 'animate-spin' : ''}`} />
-          刷新备份列表
+        <button onClick={loadBackups} disabled={loading} className="btn-ghost px-2.5 py-1.5 text-[12px] flex items-center gap-1.5 shrink-0">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          刷新
         </button>
       </div>
 
-      {/* Backup List */}
-      <div className="glass-panel rounded-2xl border border-zinc-800 overflow-hidden">
-        {backups.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <FileArchive className="w-10 h-10 text-zinc-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-zinc-300">暂无备份文件</h3>
-            <p className="text-xs text-zinc-500">
-              当您在"游戏存档图鉴"中执行存档移植时，原目录文件将被自动安全备份至本地。
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-zinc-800/80">
-            {backups.map((item, idx) => (
-              <div key={idx} className="p-4 hover:bg-zinc-900/50 transition-colors flex items-center justify-between text-xs gap-4">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <FileArchive className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <div className="min-w-0">
-                    <span className="font-mono font-medium text-zinc-200 block text-xs truncate">
-                      {item.fileName}
-                    </span>
-                    <span className="text-[11px] text-zinc-500 font-mono block truncate">
-                      {new Date(item.createdAt).toLocaleString('zh-CN')} · {formatBytes(item.size)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => handleRestore(item)}
-                    className="p-2 rounded-card text-zinc-400 hover:text-white hover:bg-ink-surface/[0.06] transition-colors"
-                    title="恢复备份到指定目录"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleOpenFolder(item)}
-                    className="p-2 rounded-card text-zinc-400 hover:text-white hover:bg-ink-surface/[0.06] transition-colors"
-                    title="在资源管理器中打开"
-                  >
-                    <Folder className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    className="p-2 rounded-card text-red-400 hover:bg-red-950/60 transition-colors"
-                    title="删除备份"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+      {backups.length === 0 ? (
+        <div className="panel p-12 text-center space-y-2">
+          <FileArchive className="w-8 h-8 text-ink-faint mx-auto" />
+          <h3 className="text-[13px] font-medium text-ink-muted">暂无备份</h3>
+          <p className="text-[12px] text-ink-faint">执行一次存档移植后，原文件会自动备份到此处</p>
+        </div>
+      ) : (
+        groups.map(group => (
+          <section key={group.key} className="panel overflow-hidden">
+            {/* Group header */}
+            <header className="px-5 py-3 border-b border-ink-borderSoft flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[13px] font-medium text-ink-text truncate">{group.title}</h3>
+                <p className="text-[11px] text-ink-faint mt-0.5">
+                  {group.subtitle} · 共 {group.items.length} 个版本
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </header>
+
+            <ul className="divide-y divide-ink-borderSoft">
+              {group.items.map((item, idx) => (
+                <li key={item.filePath} className="px-5 py-3 flex items-center gap-4 hover:bg-ink-elevated/40 transition-colors">
+                  {/* Version tag */}
+                  <span className="shrink-0 font-mono text-[11px] text-ink-faint w-8">
+                    v{group.items.length - idx}
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-[11.5px] text-ink-text truncate max-w-[28ch]">
+                        {item.fileName}
+                      </span>
+                      {item.platform && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-ink-elevated text-ink-muted border border-ink-border">
+                          {PLATFORM_LABEL[item.platform] || item.platform}
+                        </span>
+                      )}
+                      {item.direction && DIRECTION_LABEL[item.direction] && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-ink-elevated text-ink-muted border border-ink-border">
+                          {DIRECTION_LABEL[item.direction]}
+                        </span>
+                      )}
+                      {item.canAutoRestore && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          可一键还原
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-ink-faint mt-1">
+                      {new Date(item.createdAt).toLocaleString('zh-CN')} · {formatBytes(item.size)}
+                    </div>
+                    {item.restoreTargetPath && (
+                      <div className="font-mono text-[10.5px] text-ink-faint mt-0.5 truncate" title={item.restoreTargetPath}>
+                        还原目标：{item.restoreTargetPath}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {item.canAutoRestore ? (
+                      <button
+                        onClick={() => handleAutoRestore(item)}
+                        className="btn-ghost px-2.5 py-1.5 text-[11.5px] flex items-center gap-1.5"
+                        title="还原到备份时记录的目录（撤销那次移植）"
+                      >
+                        <CornerDownLeft className="w-3 h-3" />
+                        还原
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleManualRestore(item)}
+                        className="btn-ghost px-2.5 py-1.5 text-[11.5px] flex items-center gap-1.5"
+                        title="该备份无元数据，需手动选择目标目录"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        选择目录还原
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenFolder(item)}
+                      className="p-1.5 rounded-btn text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors"
+                      title="在资源管理器中显示"
+                    >
+                      <Folder className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item)}
+                      className="p-1.5 rounded-btn text-ink-faint hover:text-ink-danger hover:bg-ink-elevated transition-colors"
+                      title="删除该版本"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      )}
 
       {confirmConfig && (
         <ConfirmDialog

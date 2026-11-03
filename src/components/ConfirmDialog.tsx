@@ -2,97 +2,97 @@ import React, { useEffect, useRef } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
 export interface ConfirmDialogConfig {
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  variant?: 'default' | 'danger' | 'warning';
-  /** Extra content rendered between message and buttons (e.g. comparison info) */
-  extraContent?: React.ReactNode;
+ title: string;
+ message: string;
+ confirmLabel?: string;
+ cancelLabel?: string;
+ variant?: 'default' | 'danger' | 'warning';
+ /** Extra content rendered between message and buttons (e.g. comparison info) */
+ extraContent?: React.ReactNode;
 }
 
 interface ConfirmDialogProps extends ConfirmDialogConfig {
-  onConfirm: () => void;
-  onCancel: () => void;
+ onConfirm: () => void;
+ onCancel: () => void;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
-  title,
-  message,
-  confirmLabel = '确认',
-  cancelLabel = '取消',
-  variant = 'default',
-  extraContent,
-  onConfirm,
-  onCancel,
+ title,
+ message,
+ confirmLabel = '确认',
+ cancelLabel = '取消',
+ variant = 'default',
+ extraContent,
+ onConfirm,
+ onCancel,
 }) => {
-  const confirmRef = useRef<HTMLButtonElement>(null);
+ const confirmRef = useRef<HTMLButtonElement>(null);
 
-  // Focus trap + ESC to cancel
-  useEffect(() => {
-    confirmRef.current?.focus();
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onCancel]);
+ // Focus trap + ESC to cancel
+ useEffect(() => {
+ confirmRef.current?.focus();
+ const handler = (e: KeyboardEvent) => {
+ if (e.key === 'Escape') onCancel();
+ };
+ document.addEventListener('keydown', handler);
+ return () => document.removeEventListener('keydown', handler);
+ }, [onCancel]);
 
-  const variantStyles = {
-    default: 'bg-ink-accent hover:bg-ink-accent-hover hover:shadow-glow text-white',
-    danger: 'bg-red-500 hover:bg-red-600 text-white',
-    warning: 'bg-amber-500/100/100 hover:bg-amber-600 text-white',
-  };
+ const variantStyles = {
+ default: 'bg-ink-accent hover:bg-ink-accent-hover text-white',
+ danger: 'bg-red-500 hover:bg-red-600 text-white',
+ warning: 'bg-amber-500/100/100 hover:bg-amber-600 text-white',
+ };
 
-  return (
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onCancel}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      <div
-        className="bg-ink-surface border border-ink-border w-full max-w-lg rounded-card shadow-glass overflow-hidden"
-        onClick={e => e.stopPropagation()}
-        style={{ animation: 'modal-fade-in 0.18s ease-out' }}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-ink-borderSoft flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {variant !== 'default' && (
-              <AlertTriangle className={`w-5 h-5 ${variant === 'danger' ? 'text-red-400' : 'text-orange-500'}`} />
-            )}
-            <h2 className="font-semibold text-base text-ink-text">{title}</h2>
-          </div>
-          <button onClick={onCancel} className="p-1.5 rounded-btn text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+ return (
+ <div
+ className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 "
+ onClick={onCancel}
+ role="dialog"
+ aria-modal="true"
+ aria-label={title}
+ >
+ <div
+ className="bg-ink-surface border border-ink-border w-full max-w-lg rounded-card shadow-glass overflow-hidden"
+ onClick={e => e.stopPropagation()}
+ style={{ animation: 'modal-fade-in 0.18s ease-out' }}
+ >
+ {/* Header */}
+ <div className="px-6 py-4 border-b border-ink-borderSoft flex items-center justify-between">
+ <div className="flex items-center gap-3">
+ {variant !== 'default' && (
+ <AlertTriangle className={`w-5 h-5 ${variant === 'danger' ? 'text-red-400' : 'text-orange-500'}`} />
+ )}
+ <h2 className="font-semibold text-base text-ink-text">{title}</h2>
+ </div>
+ <button onClick={onCancel} className="p-1.5 rounded-btn text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors">
+ <X className="w-4 h-4" />
+ </button>
+ </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-ink-muted leading-relaxed whitespace-pre-line">{message}</p>
-          {extraContent}
-        </div>
+ {/* Body */}
+ <div className="p-6 space-y-4">
+ <p className="text-sm text-ink-muted leading-relaxed whitespace-pre-line">{message}</p>
+ {extraContent}
+ </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-ink-borderSoft flex items-center justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink-text transition-colors"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            ref={confirmRef}
-            onClick={onConfirm}
-            className={`px-6 py-2.5 text-sm font-semibold rounded-btn transition-colors ${variantStyles[variant]}`}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+ {/* Footer */}
+ <div className="px-6 py-4 border-t border-ink-borderSoft flex items-center justify-end gap-3">
+ <button
+ onClick={onCancel}
+ className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink-text transition-colors"
+ >
+ {cancelLabel}
+ </button>
+ <button
+ ref={confirmRef}
+ onClick={onConfirm}
+ className={`px-6 py-2.5 text-sm font-semibold rounded-btn transition-colors ${variantStyles[variant]}`}
+ >
+ {confirmLabel}
+ </button>
+ </div>
+ </div>
+ </div>
+ );
 };
