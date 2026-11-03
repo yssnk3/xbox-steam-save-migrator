@@ -106,7 +106,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
       {/* Header Info */}
       <div className="glass-panel p-6 rounded-2xl border border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-zinc-300">
+          <div className="w-10 h-10 rounded-card bg-ink-surface/[0.06] border border-white/[0.1] flex items-center justify-center text-zinc-300">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
@@ -156,21 +156,21 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleRestore(item)}
-                    className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="p-2 rounded-card text-zinc-400 hover:text-white hover:bg-ink-surface/[0.06] transition-colors"
                     title="恢复备份到指定目录"
                   >
                     <RotateCcw className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleOpenFolder(item)}
-                    className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="p-2 rounded-card text-zinc-400 hover:text-white hover:bg-ink-surface/[0.06] transition-colors"
                     title="在资源管理器中打开"
                   >
                     <Folder className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(item)}
-                    className="p-2 rounded-lg text-red-400 hover:bg-red-950/60 transition-colors"
+                    className="p-2 rounded-card text-red-400 hover:bg-red-950/60 transition-colors"
                     title="删除备份"
                   >
                     <Trash2 className="w-4 h-4" />

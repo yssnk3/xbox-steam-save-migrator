@@ -72,9 +72,9 @@ const MATCH_TYPE_LABEL: Record<string, string> = {
 };
 
 const CONFIDENCE_STYLE: Record<string, string> = {
-  high: 'bg-green-50 text-green-700 border-green-200',
-  medium: 'bg-orange-50 text-orange-700 border-orange-200',
-  low: 'bg-gray-50 text-gray-500 border-gray-200',
+  high: 'bg-emerald-500/10 text-emerald-400 border-green-200',
+  medium: 'bg-amber-500/100/10 text-orange-400 border-orange-200',
+  low: 'bg-ink-elevated text-ink-muted border-ink-border',
 };
 
 const CONFIDENCE_LABEL: Record<string, string> = { high: '高置信', medium: '中置信', low: '低置信' };
@@ -494,12 +494,12 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
   }) => {
     const match = result?.matches && result.matches.length > 0 ? result.matches[0] : null;
     return (
-      <div className={`rounded-md px-3 py-2 border text-[11px] leading-relaxed ${
+      <div className={`rounded-btn px-3 py-2 border text-[11px] leading-relaxed ${
         probing
-          ? 'border-gray-200 bg-gray-50 text-gray-500'
+          ? 'border-ink-border bg-ink-elevated text-ink-muted'
           : match
-            ? 'border-gray-200 bg-white text-gray-700'
-            : 'border-gray-100 text-gray-500'
+            ? 'border-ink-border bg-ink-surface text-ink-text'
+            : 'border-ink-borderSoft text-ink-muted'
       }`}>
         {probing ? (
           <span className="flex items-center gap-1.5">
@@ -507,7 +507,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
             正在自动识别 {label} 对应的游戏...
           </span>
         ) : result?.error ? (
-          <span className="flex items-center gap-1.5 text-red-600">
+          <span className="flex items-center gap-1.5 text-red-400">
             <Sparkles className="w-3 h-3" />
             {label}识别失败: {result.error}
           </span>
@@ -517,24 +517,24 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${CONFIDENCE_STYLE[match.confidence]}`}>
                 {CONFIDENCE_LABEL[match.confidence]}
               </span>
-              <span className="font-semibold text-gray-900">{match.name}</span>
+              <span className="font-semibold text-ink-text">{match.name}</span>
               {result && result.side && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-ink-elevated text-ink-muted border border-ink-border">
                   {result.side === 'xbox' ? 'Xbox 端' : result.side === 'steam' ? 'Steam 端' : '未判定'}
                 </span>
               )}
             </div>
-            <div className="text-gray-500">
+            <div className="text-ink-muted">
               命中线索：{match.matchTypes.map(t => MATCH_TYPE_LABEL[t] || t).join('、')}
             </div>
             {(match.steamAppId || match.xboxPackageName) && (
-              <div className="text-[10px] text-gray-400 font-mono truncate">
+              <div className="text-[10px] text-ink-faint font-mono truncate">
                 {match.steamAppId && <span>Steam AppID {match.steamAppId}</span>}
                 {match.steamAppId && match.xboxPackageName && <span> · </span>}
                 {match.xboxPackageName && <span>{match.xboxPackageName}</span>}
               </div>
             )}
-            <div className="text-gray-400 truncate" title={match.evidenceSummary || match.evidence.join('；')}>
+            <div className="text-ink-faint truncate" title={match.evidenceSummary || match.evidence.join('；')}>
               {match.evidenceSummary || match.evidence[0]}
             </div>
           </div>
@@ -545,7 +545,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
               未匹配到已知游戏，仍可直接移植（将按原始文件名处理）
             </span>
             {result && result.formatHint && (
-              <span className="block text-gray-400 text-[10px] pl-5">
+              <span className="block text-ink-faint text-[10px] pl-5">
                 检测到文件格式：{result.formatDetected || result.formatHint}
               </span>
             )}
@@ -564,21 +564,21 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
     probing: boolean;
   }) => (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-gray-500">{label}</label>
+      <label className="text-xs font-medium text-ink-muted">{label}</label>
       <div className="flex gap-2">
         <input
           type="text"
           value={value}
           onChange={e => setter(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 bg-white border border-gray-200 rounded-md px-3 py-2.5 font-mono text-[11px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-gray-400 transition-all"
+          className="flex-1 bg-ink-surface border border-ink-border rounded-btn px-3 py-2.5 font-mono text-[11px] text-ink-text focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-gray-400 transition-all"
         />
         <div className="flex gap-1.5 shrink-0">
           <button
             onClick={() => handlePickFile(setter)}
             disabled={isMigrating || busy || oneClickBusy}
             title="选择单个存档文件（自动识别所属游戏）"
-            className="px-3 py-2 text-xs font-medium rounded-md bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1 disabled:opacity-50"
+            className="px-3 py-2 text-xs font-medium rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-muted border border-ink-border transition-colors flex items-center gap-1 disabled:opacity-50"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>选文件</span>
@@ -587,7 +587,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
             onClick={() => handlePick(setter)}
             disabled={isMigrating || busy || oneClickBusy}
             title="选择整个存档目录"
-            className="px-3 py-2 text-xs font-medium rounded-md bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1 disabled:opacity-50"
+            className="px-3 py-2 text-xs font-medium rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-muted border border-ink-border transition-colors flex items-center gap-1 disabled:opacity-50"
           >
             <Folder className="w-3.5 h-3.5" />
             <span>浏览目录</span>
@@ -604,18 +604,18 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
   const busyAny = busy || oneClickBusy || isMigrating;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+    <div className="bg-ink-surface border border-ink-border rounded-card p-6 shadow-card">
       <div className="space-y-5">
         {/* Heading */}
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100">
+          <div className="p-2.5 rounded-btn bg-blue-500/10 text-blue-400 border border-blue-500/20">
             <Wand2 className="w-5 h-5" />
           </div>
           <div className="flex-1">
-            <h2 className="font-semibold text-base text-gray-900">
+            <h2 className="font-semibold text-base text-ink-text">
               识别存档，一键移植
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-ink-muted mt-0.5">
               选择任意一个存档文件夹（Steam 存档目录或 Xbox WGS 目录），系统自动识别它是哪一类存档格式、属于哪个游戏，并列出本机已有的双端存档，由你选择移植到哪一端。
             </p>
           </div>
@@ -623,8 +623,8 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
 
         {/* Step 1: pick ONE source path — the primary action */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-            <span className="w-4 h-4 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[9px] font-semibold text-gray-600">1</span>
+          <label className="text-xs font-medium text-ink-muted flex items-center gap-1.5">
+            <span className="w-4 h-4 rounded-full bg-ink-elevated border border-ink-border flex items-center justify-center text-[9px] font-semibold text-ink-muted">1</span>
             选择存档文件夹（或单个存档文件）
           </label>
           <div className="flex gap-2">
@@ -633,13 +633,13 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
               value={sourcePath}
               onChange={e => setSourcePath(e.target.value)}
               placeholder="粘贴路径，或点击右侧按钮选择 Steam 存档目录 / Xbox WGS 目录"
-              className="flex-1 bg-white border border-gray-200 rounded-md px-3 py-3 font-mono text-[11px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-gray-400 transition-all"
+              className="flex-1 bg-ink-surface border border-ink-border rounded-btn px-3 py-3 font-mono text-[11px] text-ink-text focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-gray-400 transition-all"
             />
             <button
               onClick={() => handlePickFile(setSourcePath)}
               disabled={busyAny}
               title="选择单个存档文件（自动识别所属游戏）"
-              className="px-3 py-3 text-xs font-medium rounded-md bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1 disabled:opacity-50"
+              className="px-3 py-3 text-xs font-medium rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-muted border border-ink-border transition-colors flex items-center gap-1 disabled:opacity-50"
             >
               <FileText className="w-4 h-4" />
               <span>选文件</span>
@@ -647,7 +647,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
             <button
               onClick={() => handlePick(setSourcePath)}
               disabled={busyAny}
-              className="px-4 py-3 text-xs font-semibold rounded-md bg-gray-900 hover:bg-black text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-3 text-xs font-semibold rounded-btn bg-ink-accent hover:bg-ink-accent-hover hover:shadow-glow text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
               <Folder className="w-4 h-4" />
               <span>选择存档文件夹</span>
@@ -658,13 +658,13 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
           {sourcePath.trim() && (
             <div className="space-y-2">
               {!probingSource && sourceResult && !sourceResult.error && (
-                <div className="rounded-md px-3 py-2 border border-gray-200 bg-gray-50 text-[11px] flex items-center gap-2 flex-wrap">
-                  <span className="text-gray-500">存档格式：</span>
-                  <span className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-900 font-semibold">
+                <div className="rounded-btn px-3 py-2 border border-ink-border bg-ink-elevated text-[11px] flex items-center gap-2 flex-wrap">
+                  <span className="text-ink-muted">存档格式：</span>
+                  <span className="px-1.5 py-0.5 rounded border border-ink-border bg-ink-surface text-ink-text font-semibold">
                     {SIDE_FORMAT_LABEL[sourceResult.side || 'unknown']}
                   </span>
                   {sourceResult.formatDetected && (
-                    <span className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-gray-500">
+                    <span className="px-1.5 py-0.5 rounded border border-ink-border bg-ink-surface text-ink-muted">
                       {sourceResult.formatDetected}
                     </span>
                   )}
@@ -678,55 +678,55 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
         {/* Step 2: local dual-end saves + explicit direction choice */}
         {counterpart && (
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
-              <span className="w-4 h-4 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[9px] font-semibold text-gray-600">2</span>
+            <label className="text-xs font-medium text-ink-muted flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-ink-elevated border border-ink-border flex items-center justify-center text-[9px] font-semibold text-ink-muted">2</span>
               本机已有的双端存档 —— 选择要移植到哪一端
             </label>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {/* Steam side */}
-              <div className={`rounded-md px-3 py-2.5 border text-[11px] space-y-1 ${
-                counterpart.steamExists ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50/50'
+              <div className={`rounded-btn px-3 py-2.5 border text-[11px] space-y-1 ${
+                counterpart.steamExists ? 'border-ink-border bg-ink-surface' : 'border-ink-borderSoft bg-ink-elevated/50'
               }`}>
                 <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${counterpart.steamExists ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`font-semibold ${counterpart.steamExists ? 'text-gray-900' : 'text-gray-500'}`}>Steam 端</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${counterpart.steamExists ? 'bg-emerald-500' : 'bg-ink-raised'}`} />
+                  <span className={`font-semibold ${counterpart.steamExists ? 'text-ink-text' : 'text-ink-muted'}`}>Steam 端</span>
                   {recommended === 'xbox_to_steam' && counterpart.steamExists && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-gray-200 bg-gray-50 text-gray-500">较旧</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-ink-border bg-ink-elevated text-ink-muted">较旧</span>
                   )}
                   {recommended === 'steam_to_xbox' && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-blue-100 bg-blue-50 text-blue-600">较新</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-blue-500/20 bg-blue-500/10 text-blue-400">较新</span>
                   )}
                 </div>
-                <div className={`font-mono truncate ${counterpart.steamExists ? 'text-gray-500' : 'text-gray-400'}`} title={counterpart.steamSavePath || ''}>
+                <div className={`font-mono truncate ${counterpart.steamExists ? 'text-ink-muted' : 'text-ink-faint'}`} title={counterpart.steamSavePath || ''}>
                   {counterpart.steamSavePath || '未找到（可用「自定义移植」手动指定）'}
                 </div>
                 {counterpart.steamExists && (
-                  <div className="text-gray-400 font-mono">
+                  <div className="text-ink-faint font-mono">
                     {counterpart.steamFileCount || 0} 个文件 · {formatBytes(counterpart.steamSize)} · {formatDate(counterpart.steamLastModified)}
                   </div>
                 )}
               </div>
 
               {/* Xbox side */}
-              <div className={`rounded-md px-3 py-2.5 border text-[11px] space-y-1 ${
-                counterpart.xboxExists ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50/50'
+              <div className={`rounded-btn px-3 py-2.5 border text-[11px] space-y-1 ${
+                counterpart.xboxExists ? 'border-ink-border bg-ink-surface' : 'border-ink-borderSoft bg-ink-elevated/50'
               }`}>
                 <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${counterpart.xboxExists ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`font-semibold ${counterpart.xboxExists ? 'text-gray-900' : 'text-gray-500'}`}>Xbox 端</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${counterpart.xboxExists ? 'bg-emerald-500' : 'bg-ink-raised'}`} />
+                  <span className={`font-semibold ${counterpart.xboxExists ? 'text-ink-text' : 'text-ink-muted'}`}>Xbox 端</span>
                   {recommended === 'xbox_to_steam' && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-blue-100 bg-blue-50 text-blue-600">较新</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-blue-500/20 bg-blue-500/10 text-blue-400">较新</span>
                   )}
                   {recommended === 'steam_to_xbox' && counterpart.xboxExists && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-gray-200 bg-gray-50 text-gray-500">较旧</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] border border-ink-border bg-ink-elevated text-ink-muted">较旧</span>
                   )}
                 </div>
-                <div className={`font-mono truncate ${counterpart.xboxExists ? 'text-gray-500' : 'text-gray-400'}`} title={counterpart.xboxWgsPath || ''}>
+                <div className={`font-mono truncate ${counterpart.xboxExists ? 'text-ink-muted' : 'text-ink-faint'}`} title={counterpart.xboxWgsPath || ''}>
                   {counterpart.xboxWgsPath || '未找到（可用「自定义移植」手动指定）'}
                 </div>
                 {counterpart.xboxExists && (
-                  <div className="text-gray-400 font-mono">
+                  <div className="text-ink-faint font-mono">
                     {counterpart.xboxFileCount || 0} 个文件 · {formatBytes(counterpart.xboxSize)} · {formatDate(counterpart.xboxLastModified)}
                   </div>
                 )}
@@ -735,7 +735,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
 
             {/* Per-game migration warnings, before the user commits a direction */}
             {topMatch && ((topMatch as any).steamXboxByteIncompatible || (topMatch as any).needsConversionTool || (topMatch as any).accountBound) && (
-              <div className="space-y-1 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-[11px] leading-relaxed text-orange-800">
+              <div className="space-y-1 rounded-btn border border-orange-200 bg-amber-500/100/10 px-3 py-2 text-[11px] leading-relaxed text-orange-800">
                 {(topMatch as any).needsConversionTool && (
                   <div>⛔ 两端存档字节布局不同，需先用 {typeof (topMatch as any).needsConversionTool === 'string' ? (topMatch as any).needsConversionTool : '专用工具'} 等外部工具转换，暂不支持直接移植。</div>
                 )}
@@ -756,10 +756,10 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                 title={runnableXboxToSteam
                   ? '把 Xbox 端存档移植到 Steam'
                   : '需要 Xbox 端存在存档、能定位 Steam 存档目录，且该游戏支持直接移植'}
-                className={`flex-1 px-5 py-3 text-sm font-semibold rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-2 ${
+                className={`flex-1 px-5 py-3 text-sm font-semibold rounded-btn transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-2 ${
                   recommended === 'xbox_to_steam'
                     ? 'bg-green-600 hover:bg-green-700 text-white'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+                    : 'bg-ink-surface hover:bg-ink-elevated text-ink-text border border-ink-border'
                 }`}
               >
                 {oneClickBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowLeft className="w-4 h-4" />}
@@ -774,10 +774,10 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                 title={runnableSteamToXbox
                   ? '把 Steam 端存档移植到 Xbox'
                   : '需要 Steam 端存在存档、能定位 Xbox WGS 目录，且该游戏支持直接移植'}
-                className={`flex-1 px-5 py-3 text-sm font-semibold rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-2 ${
+                className={`flex-1 px-5 py-3 text-sm font-semibold rounded-btn transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-2 ${
                   recommended === 'steam_to_xbox'
                     ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200'
+                    : 'bg-ink-surface hover:bg-ink-elevated text-ink-text border border-ink-border'
                 }`}
               >
                 {oneClickBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
@@ -791,7 +791,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                   onClick={() => onPreviewGame(topMatch.id)}
                   disabled={busyAny}
                   title="移植测试（预演）：不写任何文件，预测两端移植时字节会落到哪些槽位"
-                  className="md:flex-none px-3.5 py-3 text-xs font-medium rounded-md bg-white hover:bg-gray-50 text-gray-500 border border-gray-200 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="md:flex-none px-3.5 py-3 text-xs font-medium rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-muted border border-ink-border transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   <FlaskConical className="w-3.5 h-3.5" />
                   预演
@@ -803,8 +803,8 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                 picked above; target is freely chosen. Covers xbox->xbox and
                 steam->steam (multi-account / multi-instance / cross-machine
                 restore) and any user-chosen异端 path. */}
-            <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">
-              <div className="text-[11px] text-gray-500 flex items-center gap-1.5">
+            <div className="space-y-2 rounded-btn border border-ink-border bg-ink-elevated p-3">
+              <div className="text-[11px] text-ink-muted flex items-center gap-1.5">
                 <ArrowRightLeft className="w-3 h-3" />
                 <span>同端复制 / 移植到任意目录（多账号、WGS 实例迁移、跨机恢复）</span>
               </div>
@@ -814,12 +814,12 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                   value={copyTargetPath}
                   onChange={e => setCopyTargetPath(e.target.value)}
                   placeholder="目标存档目录（任意端、可与源同端）"
-                  className="flex-1 bg-white border border-gray-200 rounded-md px-3 py-2 font-mono text-[11px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-gray-400 transition-all"
+                  className="flex-1 bg-ink-surface border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-gray-400 transition-all"
                 />
                 <button
                   onClick={() => handlePick(setCopyTargetPath)}
                   disabled={busyAny}
-                  className="px-3 py-2 text-xs font-medium rounded-md bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  className="px-3 py-2 text-xs font-medium rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-muted border border-ink-border transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                   <Folder className="w-3.5 h-3.5" />
                   浏览
@@ -827,7 +827,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                 <select
                   value={copyTargetSide}
                   onChange={e => setCopyTargetSide(e.target.value as any)}
-                  className="bg-white border border-gray-200 text-gray-700 text-xs rounded-md px-2 py-2"
+                  className="bg-ink-surface border border-ink-border text-ink-text text-xs rounded-btn px-2 py-2"
                   title="目标类型：auto=按路径自动判断"
                 >
                   <option value="auto">自动判断</option>
@@ -846,7 +846,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                       : !copyTargetPath.trim()
                         ? '请填写目标目录'
                         : '从源 Xbox WGS 复制到指定 Xbox WGS（同端复制）'}
-                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-md bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-1.5"
+                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-text border border-ink-border transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-1.5"
                 >
                   {copyBusy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />}
                   复制到 Xbox 端
@@ -861,21 +861,21 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                       : !copyTargetPath.trim()
                         ? '请填写目标目录'
                         : '从源 Steam 存档目录复制到指定 Steam 目录（同端复制）'}
-                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-md bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-1.5"
+                  className="flex-1 px-4 py-2.5 text-xs font-semibold rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-text border border-ink-border transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center gap-1.5"
                 >
                   {copyBusy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ArrowLeft className="w-3.5 h-3.5" />}
                   复制到 Steam 端
                 </button>
               </div>
               {copyTargetSide !== 'auto' && (
-                <div className="text-[10px] text-gray-400">
+                <div className="text-[10px] text-ink-faint">
                   目标类型已显式选择为 {copyTargetSide === 'xbox' ? 'Xbox' : 'Steam'}；上方两个按钮按目标端显示。
                 </div>
               )}
             </div>
 
             {recommended && (
-              <div className="text-[10px] text-gray-400">
+              <div className="text-[10px] text-ink-faint">
                 推荐依据：{recommended === 'xbox_to_steam' ? 'Xbox' : 'Steam'} 端存档修改时间较新。方向由你决定，反向移植会用较旧的档覆盖较新的档。
               </div>
             )}
@@ -884,7 +884,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
 
         {/* No game recognized (or no counterpart resolvable): fall back to custom mode */}
         {sourcePath.trim() && !probingSource && !counterpart && (
-          <div className="rounded-md px-3 py-2.5 border border-gray-200 bg-gray-50 text-[11px] text-gray-500">
+          <div className="rounded-btn px-3 py-2.5 border border-ink-border bg-ink-elevated text-[11px] text-ink-muted">
             {sourceResult?.error
               ? `无法识别该路径：${sourceResult.error}`
               : '未能定位该游戏在本机的双端存档路径（可能只装了一端，或不在预设库中）。请展开下方「自定义移植」手动指定 Steam 与 Xbox 两个目录。'}
@@ -895,7 +895,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
           <button
             onClick={toggleCustom}
-            className="px-5 py-3 text-xs font-medium rounded-md bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 transition-colors flex items-center justify-center gap-1.5"
+            className="px-5 py-3 text-xs font-medium rounded-btn bg-ink-surface hover:bg-ink-elevated text-ink-muted border border-ink-border transition-colors flex items-center justify-center gap-1.5"
           >
             <Settings2 className="w-4 h-4" />
             自定义移植（手动指定两个目录）
@@ -905,9 +905,9 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
 
         {/* Custom mode: dual-path inputs + direction + execute */}
         {customOpen && (
-          <div className="space-y-4 pt-4 border-t border-gray-100">
-            <div className="text-xs text-gray-500 flex items-center gap-1.5">
-              <span className="w-4 h-4 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[9px] font-semibold text-gray-600">3</span>
+          <div className="space-y-4 pt-4 border-t border-ink-borderSoft">
+            <div className="text-xs text-ink-muted flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-full bg-ink-elevated border border-ink-border flex items-center justify-center text-[9px] font-semibold text-ink-muted">3</span>
               手动指定双端路径（识别结果会自动填入，可修改）
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -930,13 +930,13 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
             </div>
 
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-md border border-gray-200 w-full md:w-auto">
+              <div className="flex items-center gap-1 bg-ink-elevated p-1 rounded-btn border border-ink-border w-full md:w-auto">
                 <button
                   onClick={() => setDirection('xbox_to_steam')}
                   className={`px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 flex-1 md:flex-none ${
                     direction === 'xbox_to_steam'
                       ? 'bg-green-600 text-white'
-                      : 'text-gray-500 hover:text-gray-900'
+                      : 'text-ink-muted hover:text-ink-text'
                   }`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
@@ -947,7 +947,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                   className={`px-3.5 py-2 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 flex-1 md:flex-none ${
                     direction === 'steam_to_xbox'
                       ? 'bg-blue-600 text-white'
-                      : 'text-gray-500 hover:text-gray-900'
+                      : 'text-ink-muted hover:text-ink-text'
                   }`}
                 >
                   Steam ➔ Xbox
@@ -958,7 +958,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
               <button
                 onClick={handleMigrate}
                 disabled={busyAny}
-                className="flex-1 md:flex-none px-6 py-3 text-xs font-semibold rounded-md bg-gray-900 hover:bg-black text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 md:flex-none px-6 py-3 text-xs font-semibold rounded-btn bg-ink-accent hover:bg-ink-accent-hover hover:shadow-glow text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {busy ? (
                   <>
@@ -972,7 +972,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
                 )}
               </button>
             </div>
-            <div className="text-[10px] text-gray-400">当前方向：{dirText}</div>
+            <div className="text-[10px] text-ink-faint">当前方向：{dirText}</div>
           </div>
         )}
       </div>

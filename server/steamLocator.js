@@ -9,8 +9,8 @@ const __dirname = path.dirname(__filename);
 
 /**
  * Steam Locator — robust discovery of Steam install paths, library folders,
- * and logged-in users. Ported from Program.cs DiscoverSteamInstallPaths /
- * ParseSteamUsers / libraryfolders.vdf parsing to close the scan-coverage gap.
+ * and logged-in users: DiscoverSteamInstallPaths / ParseSteamUsers /
+ * libraryfolders.vdf parsing, to close the scan-coverage gap.
  */
 
 // Read a single string value from the Windows registry via `reg query`.

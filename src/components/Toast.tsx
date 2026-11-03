@@ -14,10 +14,10 @@ const ToastContext = createContext<(message: string, type?: ToastType) => void>(
 export const useToast = () => useContext(ToastContext);
 
 const TOAST_STYLES: Record<ToastType, { icon: React.ReactNode; bar: string; text: string; bg: string }> = {
-  success: { icon: <CheckCircle2 className="w-4 h-4 text-green-600" />, bar: 'border-l-green-500', text: 'text-gray-800', bg: 'bg-white' },
-  error: { icon: <XCircle className="w-4 h-4 text-red-600" />, bar: 'border-l-red-500', text: 'text-gray-800', bg: 'bg-white' },
-  warning: { icon: <AlertTriangle className="w-4 h-4 text-orange-600" />, bar: 'border-l-orange-500', text: 'text-gray-800', bg: 'bg-white' },
-  info: { icon: <Info className="w-4 h-4 text-blue-600" />, bar: 'border-l-blue-500', text: 'text-gray-800', bg: 'bg-white' },
+  success: { icon: <CheckCircle2 className="w-4 h-4 text-green-600" />, bar: 'border-l-green-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 backdrop-blur-md' },
+  error: { icon: <XCircle className="w-4 h-4 text-red-400" />, bar: 'border-l-red-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 backdrop-blur-md' },
+  warning: { icon: <AlertTriangle className="w-4 h-4 text-orange-400" />, bar: 'border-l-orange-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 backdrop-blur-md' },
+  info: { icon: <Info className="w-4 h-4 text-blue-400" />, bar: 'border-l-blue-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 backdrop-blur-md' },
 };
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,14 +48,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return (
             <div
               key={t.id}
-              className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-md border border-l-[3px] ${s.bar} border-gray-200 ${s.bg} shadow-md`}
+              className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-btn border border-l-[3px] ${s.bar} border-ink-border ${s.bg} shadow-glass`}
               style={{ animation: 'toast-slide-in 0.25s ease-out' }}
             >
               <div className="shrink-0 mt-0.5">{s.icon}</div>
               <span className={`text-sm ${s.text} flex-1 break-words leading-relaxed font-medium`}>{t.message}</span>
               <button
                 onClick={() => dismiss(t.id)}
-                className="shrink-0 text-gray-400 hover:text-gray-900 transition-colors"
+                className="shrink-0 text-ink-faint hover:text-ink-text transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

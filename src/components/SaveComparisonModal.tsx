@@ -111,7 +111,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
         <div className="px-6 py-4 border-b border-white/[0.07] flex items-center justify-between">
           <div className="flex items-center gap-3">
             {game.iconUrl && (
-              <img src={game.iconUrl} alt={game.name} className="w-11 h-11 rounded-lg object-cover border border-white/[0.1]" />
+              <img src={game.iconUrl} alt={game.name} className="w-11 h-11 rounded-card object-cover border border-white/[0.1]" />
             )}
             <div>
               <h2 className="font-bold text-base text-white">{game.name}</h2>
@@ -121,7 +121,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="p-2 rounded-card text-zinc-500 hover:text-white hover:bg-ink-surface/[0.06] transition-colors"
             aria-label="关闭"
           >
             <X className="w-5 h-5" />
@@ -133,7 +133,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
           {/* Smart Recommendation Banner */}
           {inspectionData && inspectionData.recommendationReason && (
-            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-between gap-4">
+            <div className="p-4 rounded-xl bg-ink-surface/[0.03] border border-white/[0.08] flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
                 <div className="text-xs text-zinc-300">
@@ -142,7 +142,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                 </div>
               </div>
               {isAgainstRecommendation && (
-                <span className="px-3 py-1 text-xs font-bold rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 shrink-0 flex items-center gap-1">
+                <span className="px-3 py-1 text-xs font-bold rounded-card bg-red-500/15 text-red-400 border border-red-500/30 shrink-0 flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   方向相反
                 </span>
@@ -154,7 +154,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
             {/* Steam Side Panel */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+            <div className="p-4 rounded-xl bg-ink-surface/[0.02] border border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between border-b border-white/[0.07] pb-2.5">
                 <div className="flex items-center gap-2 text-zinc-200 font-semibold text-sm">
                   <span className="w-2 h-2 rounded-full bg-sky-400"></span>
@@ -163,7 +163,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                 {game.isSteamDetected && (
                   <button
                     onClick={() => handleOpenFolder(customSteamPath)}
-                    className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.08] transition-colors flex items-center gap-1"
+                    className="px-2.5 py-1 text-[11px] font-medium rounded-btn bg-ink-surface/[0.04] hover:bg-ink-surface/[0.08] text-zinc-300 border border-white/[0.08] transition-colors flex items-center gap-1"
                   >
                     <Folder className="w-3.5 h-3.5" />
                     打开文件夹
@@ -196,7 +196,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                         <div key={idx} className="flex items-center justify-between text-zinc-300 border-b border-zinc-800/40 pb-0.5 gap-2">
                           <span className="truncate flex-1" title={f.fileName}>{f.fileName}</span>
                           <span className="text-zinc-500 shrink-0">{(f.size / 1024).toFixed(1)} KB</span>
-                          <span className="text-zinc-400 text-[9px] bg-white/[0.06] px-1 rounded shrink-0" title={f.md5}>{f.md5.substring(0, 8)}</span>
+                          <span className="text-zinc-400 text-[9px] bg-ink-surface/[0.06] px-1 rounded shrink-0" title={f.md5}>{f.md5.substring(0, 8)}</span>
                         </div>
                       ))
                     ) : (
@@ -208,7 +208,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
             </div>
 
             {/* Xbox Side Panel */}
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.08] space-y-3">
+            <div className="p-4 rounded-xl bg-ink-surface/[0.02] border border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between border-b border-white/[0.07] pb-2.5">
                 <div className="flex items-center gap-2 text-zinc-200 font-semibold text-sm">
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -217,7 +217,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                 {game.isXboxDetected && (
                   <button
                     onClick={() => handleOpenFolder(customXboxPath)}
-                    className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.08] transition-colors flex items-center gap-1"
+                    className="px-2.5 py-1 text-[11px] font-medium rounded-btn bg-ink-surface/[0.04] hover:bg-ink-surface/[0.08] text-zinc-300 border border-white/[0.08] transition-colors flex items-center gap-1"
                   >
                     <Folder className="w-3.5 h-3.5" />
                     打开 WGS 目录
@@ -250,7 +250,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                         <div key={idx} className="flex items-center justify-between text-zinc-300 border-b border-zinc-800/40 pb-0.5 gap-2">
                           <span className="truncate flex-1" title={c.containerName}>{c.containerName}</span>
                           <span className="text-zinc-500 shrink-0">{(c.size / 1024).toFixed(1)} KB</span>
-                          <span className="text-zinc-400 text-[9px] bg-white/[0.06] px-1 rounded shrink-0">{c.mappedFiles?.length || 0} files</span>
+                          <span className="text-zinc-400 text-[9px] bg-ink-surface/[0.06] px-1 rounded shrink-0">{c.mappedFiles?.length || 0} files</span>
                         </div>
                       ))
                     ) : (
@@ -273,7 +273,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                 className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-colors ${
                   activeDirection === 'xbox_to_steam'
                     ? 'bg-emerald-600/15 border-emerald-500/60 text-white'
-                    : 'bg-white/[0.02] border-white/[0.08] text-zinc-400 hover:border-white/[0.2]'
+                    : 'bg-ink-surface/[0.02] border-white/[0.08] text-zinc-400 hover:border-white/[0.2]'
                 }`}
               >
                 <div className="flex items-center gap-2 font-bold text-sm">
@@ -290,7 +290,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
                 className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-colors ${
                   activeDirection === 'steam_to_xbox'
                     ? 'bg-sky-600/15 border-sky-500/60 text-white'
-                    : 'bg-white/[0.02] border-white/[0.08] text-zinc-400 hover:border-white/[0.2]'
+                    : 'bg-ink-surface/[0.02] border-white/[0.08] text-zinc-400 hover:border-white/[0.2]'
                 }`}
               >
                 <div className="flex items-center gap-2 font-bold text-sm">
@@ -336,7 +336,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
           <button
             onClick={handleExecute}
             disabled={isMigrating}
-            className="px-6 py-2.5 text-xs font-bold rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2.5 text-xs font-bold rounded-card bg-ink-accent hover:bg-ink-accent-hover hover:shadow-glow text-white transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {isMigrating ? (
               <>

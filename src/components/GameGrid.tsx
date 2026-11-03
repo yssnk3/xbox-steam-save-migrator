@@ -55,18 +55,18 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
     <div className="space-y-6">
       
       {/* Search Banner */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+      <div className="bg-ink-surface border border-ink-border rounded-card p-5 shadow-card">
         <div className="space-y-4">
 
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-md bg-gray-50 text-gray-500 border border-gray-100">
+            <div className="p-2 rounded-btn bg-ink-elevated text-ink-muted border border-ink-borderSoft">
               <Search className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-semibold text-base text-gray-900">
+              <h2 className="font-semibold text-base text-ink-text">
                 本机扫描到的游戏存档
               </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-ink-muted mt-0.5">
                 本机实际扫描到的游戏存档，双端均检测到且地址正确的排在最前，可直接一键移植。若列表里找不到，用上方「识别存档」选择存档文件夹直接移植，或添加自定义游戏。
               </p>
             </div>
@@ -74,18 +74,18 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
 
           {/* Search Input */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint" />
             <input
               type="text"
               placeholder="搜索游戏名称（例如：帕鲁、星空、Lies of P...）"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-md pl-9 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full bg-ink-elevated border border-ink-border rounded-btn pl-9 pr-4 py-2.5 text-sm text-ink-text placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-ink-muted hover:text-ink-text bg-ink-elevated hover:bg-ink-raised px-2 py-0.5 rounded transition-colors"
               >
                 清空
               </button>
@@ -94,12 +94,12 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
 
           {/* Quick Preset Badges */}
           <div className="flex items-center gap-2 flex-wrap pt-1 text-xs">
-            <span className="text-gray-400">快速筛选：</span>
+            <span className="text-ink-faint">快速筛选：</span>
             {['帕鲁', '星空', '匹诺曹', '深岩银河', '地平线', '怪猎'].map((quickName) => (
               <button
                 key={quickName}
                 onClick={() => setSearchTerm(quickName)}
-                className="px-2.5 py-1 rounded-md bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 hover:text-gray-900 transition-colors"
+                className="px-2.5 py-1 rounded-btn bg-ink-elevated hover:bg-ink-elevated border border-ink-border text-ink-muted hover:text-ink-text transition-colors"
               >
                 {quickName}
               </button>
@@ -110,23 +110,23 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
       </div>
 
       {/* Filter Tabs & Count */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-ink-borderSoft">
         
-        <h3 className="font-semibold text-sm text-gray-900">
-          匹配到的游戏 <span className="text-gray-400 font-normal">({filteredGames.length})</span>
+        <h3 className="font-semibold text-sm text-ink-text">
+          匹配到的游戏 <span className="text-ink-faint font-normal">({filteredGames.length})</span>
         </h3>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto bg-gray-50 p-1 rounded-md border border-gray-100">
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto bg-ink-elevated p-1 rounded-btn border border-ink-borderSoft">
           <button
             onClick={() => setFilterMode('detected')}
             className={`px-3 py-1.5 text-xs font-medium rounded transition-colors shrink-0 ${
               filterMode === 'detected'
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+                ? 'bg-ink-surface text-ink-text shadow-card border border-ink-border'
+                : 'text-ink-muted hover:text-ink-text hover:bg-ink-elevated border border-transparent'
             }`}
           >
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 align-middle" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/100 mr-1.5 align-middle" />
             本机有存档 ({detectedCount})
           </button>
 
@@ -134,8 +134,8 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
             onClick={() => setFilterMode('both')}
             className={`px-3 py-1.5 text-xs font-medium rounded transition-colors shrink-0 ${
               filterMode === 'both'
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+                ? 'bg-ink-surface text-ink-text shadow-card border border-ink-border'
+                : 'text-ink-muted hover:text-ink-text hover:bg-ink-elevated border border-transparent'
             }`}
           >
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5 align-middle" />
@@ -146,8 +146,8 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
             onClick={() => setFilterMode('all')}
             className={`px-3 py-1.5 text-xs font-medium rounded transition-colors shrink-0 ${
               filterMode === 'all'
-                ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 border border-transparent'
+                ? 'bg-ink-surface text-ink-text shadow-card border border-ink-border'
+                : 'text-ink-muted hover:text-ink-text hover:bg-ink-elevated border border-transparent'
             }`}
           >
             全部 ({games.length})
@@ -158,10 +158,10 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
 
       {/* Game Cards Grid */}
       {filteredGames.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center space-y-3">
-          <Sparkles className="w-8 h-8 text-gray-300 mx-auto" />
-          <h3 className="text-sm font-semibold text-gray-900">未检索到匹配的游戏</h3>
-          <p className="text-xs text-gray-500 max-w-md mx-auto">
+        <div className="bg-ink-surface border border-ink-border rounded-card p-12 text-center space-y-3">
+          <Sparkles className="w-8 h-8 text-ink-faint mx-auto" />
+          <h3 className="text-sm font-semibold text-ink-text">未检索到匹配的游戏</h3>
+          <p className="text-xs text-ink-muted max-w-md mx-auto">
             请尝试更换搜索关键词，或点击"添加自定义游戏"手动注册游戏。也可用上方「识别存档」直接选择存档文件夹移植。
           </p>
         </div>

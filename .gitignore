@@ -15,10 +15,22 @@ custom_games.json
 # 教程视频（大体积二进制素材，不进版本库）
 视频/
 
-# 工具工作区
+# 工具工作区 / 本地 agent 配置
 .zcode/
+.zcodeignore
+.agent/
+.claude/
+AGENTS.md
+CLAUDE.md
 
 # 系统 / 编辑器
 .DS_Store
 Thumbs.db
 *.log
+*.tmp
+*.bak
+
+# 环境变量与本地密钥
+.env
+.env.local
+.env.*.local

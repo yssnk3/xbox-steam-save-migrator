@@ -13,9 +13,9 @@ interface PortabilityModalProps {
 }
 
 const VERDICT_META: Record<string, { label: string; cls: string }> = {
-  ok:         { label: '可移植', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
-  partial:    { label: '部分不可写', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-  'needs-launch': { label: '需先启动游戏', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
+  ok:         { label: '可移植', cls: 'bg-emerald-500/100/10 text-emerald-400 border-emerald-500/30' },
+  partial:    { label: '部分不可写', cls: 'bg-amber-500/100/10 text-amber-400 border-amber-500/30' },
+  'needs-launch': { label: '需先启动游戏', cls: 'bg-amber-500/100/10 text-amber-400 border-amber-500/30' },
   'no-source':    { label: '未找到源存档', cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30' },
   empty:        { label: '源为空', cls: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30' },
   refused:      { label: '已拦截', cls: 'bg-red-500/10 text-red-400 border-red-500/30' },
@@ -30,7 +30,7 @@ function DirectionCard({ title, icon, report }: {
 }) {
   const meta = VERDICT_META[report.verdict] || VERDICT_META.unknown;
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
+    <div className="rounded-xl border border-white/[0.08] bg-ink-surface/[0.02] p-4 space-y-3">
       <div className="flex items-center gap-2">
         <span className="text-zinc-400">{icon}</span>
         <span className="font-semibold text-sm text-zinc-100">{title}</span>
@@ -46,7 +46,7 @@ function DirectionCard({ title, icon, report }: {
           <div className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5" /> 将写入 {report.willWrite.length} 个槽位
           </div>
-          <div className="max-h-40 overflow-auto rounded-lg border border-white/[0.06] bg-black/20">
+          <div className="max-h-40 overflow-auto rounded-card border border-white/[0.06] bg-black/60">
             {report.willWrite.map(w => (
               <div key={w.slot + w.source} className="px-3 py-1.5 text-[11px] font-mono text-zinc-400 border-b border-white/[0.04] last:border-0 flex items-center gap-2">
                 <span className="text-zinc-200 truncate">{w.source}</span>
@@ -64,7 +64,7 @@ function DirectionCard({ title, icon, report }: {
           <div className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
             <FileText className="w-3.5 h-3.5" /> 将提取 {report.files.length} 个文件
           </div>
-          <div className="max-h-40 overflow-auto rounded-lg border border-white/[0.06] bg-black/20">
+          <div className="max-h-40 overflow-auto rounded-card border border-white/[0.06] bg-black/60">
             {report.files.map(f => (
               <div key={f.name + f.container} className="px-3 py-1.5 text-[11px] font-mono text-zinc-400 border-b border-white/[0.04] last:border-0">
                 <span className="text-zinc-200">{f.name}</span>
@@ -89,7 +89,7 @@ function DirectionCard({ title, icon, report }: {
       )}
 
       {report.skippedContainers && report.skippedContainers.length > 0 && (
-        <div className="max-h-28 overflow-auto rounded-lg border border-white/[0.06] bg-black/20">
+        <div className="max-h-28 overflow-auto rounded-card border border-white/[0.06] bg-black/60">
           {report.skippedContainers.map(s => (
             <div key={s.container} className="px-3 py-1 text-[11px] font-mono text-zinc-500">
               ⏭️ {s.container}：{s.reason}
@@ -134,14 +134,14 @@ export const PortabilityModal: React.FC<PortabilityModalProps> = ({ game, onClos
       >
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-zinc-300">
+          <div className="p-2 rounded-card bg-ink-surface/[0.06] border border-white/[0.08] text-zinc-300">
             <FlaskConical className="w-5 h-5" />
           </div>
           <div className="flex-1">
             <h2 className="font-bold text-base text-white">移植测试（预演）</h2>
             <div className="text-xs text-zinc-500">{game.name}</div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-zinc-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-card hover:bg-ink-surface/[0.06] text-zinc-400 hover:text-white transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -150,7 +150,7 @@ export const PortabilityModal: React.FC<PortabilityModalProps> = ({ game, onClos
         {report?.game && (
           <div className="flex flex-wrap gap-1.5">
             {report.game.accountBound && (
-              <span className="px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-400 text-[11px] flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/100/10 text-amber-400 text-[11px] flex items-center gap-1">
                 <KeyRound className="w-3 h-3" /> 账号绑定：只移植自己的存档
               </span>
             )}
@@ -160,7 +160,7 @@ export const PortabilityModal: React.FC<PortabilityModalProps> = ({ game, onClos
               </span>
             )}
             {report.game.identifyOnly && (
-              <span className="px-2 py-0.5 rounded border border-white/[0.1] bg-white/[0.05] text-zinc-400 text-[11px]">
+              <span className="px-2 py-0.5 rounded border border-white/[0.1] bg-ink-surface/[0.05] text-zinc-400 text-[11px]">
                 识别专用类（未实测布局）
               </span>
             )}

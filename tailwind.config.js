@@ -4,31 +4,47 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Microsoft YaHei"', 'sans-serif'],
+        display: ['"Space Grotesk"', 'Inter', '"Segoe UI"', '"Microsoft YaHei"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       colors: {
-        notion: {
-          bg: '#FFFFFF',
-          text: '#37352F',
-          muted: '#787774',
-          border: '#E8E7E4',
-          hover: '#F1F1EF',
-          active: '#E8E7E4',
-          accent: '#2F80ED',
-          success: '#0F7B6C',
-          warning: '#D9730D',
-          danger: '#E03E3E',
-          tag: '#F1F1EF',
-          card: '#FFFFFF',
-          sidebar: '#FBFAF9',
+        // 深色现代风语义 token —— 三层背景 / 三级文本 / 两级描边
+        ink: {
+          base: '#0B0B16',        // 页面底
+          surface: '#14141F',     // 卡片 / 面板
+          elevated: '#1C1C2C',    // 悬浮层 / 输入框 / hover
+          raised: '#232338',      // 二级 hover / 分段控件选中
+          text: '#E7E9F0',
+          muted: '#8B8FA3',
+          faint: '#5A5E72',
+          border: '#262840',
+          borderSoft: 'rgba(255,255,255,0.06)',
+          accent: '#7C3AED',
+          'accent-hover': '#8B5CF6',
+          'accent-down': '#6D28D9',
+          'accent-soft': 'rgba(124,58,237,0.12)',
+          success: '#34D399',
+          warning: '#FBBF24',
+          danger: '#F43F5E',
+          'xbox-to-steam': '#10B981',   // 方向按钮语义色（全 UI 唯一彩色按钮）
+          'steam-to-xbox': '#38BDF8',
         },
       },
       borderRadius: {
-        notion: '4px',
+        card: '12px',
+        btn: '8px',
       },
       boxShadow: {
-        notion: '0 1px 2px rgba(0, 0, 0, 0.04)',
-        'notion-hover': '0 2px 8px rgba(0, 0, 0, 0.08)',
+        card: '0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
+        'card-hover': '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
+        glow: '0 0 0 1px rgba(124,58,237,0.35), 0 4px 20px rgba(124,58,237,0.35)',
+        'glow-soft': '0 0 16px rgba(124,58,237,0.18)',
+        glass: '0 8px 32px rgba(0,0,0,0.45)',
+      },
+      backgroundImage: {
+        'brand-gradient': 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)',
+        'page-glow': 'radial-gradient(1200px 600px at 50% -10%, rgba(124,58,237,0.10), transparent 60%)',
       },
     },
   },

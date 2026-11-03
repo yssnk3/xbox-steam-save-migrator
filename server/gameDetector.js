@@ -8,7 +8,7 @@ import { getSteamEnvironment } from './steamLocator.js';
 /**
  * Game Detector Service
  * Locates Steam userdata, AppData save folders, and Xbox Package WGS folders on Windows.
- * Rewritten to align with Program.cs: registry/VDF discovery, multi-user, recursive
+ * Rewritten for broader coverage: registry/VDF discovery, multi-user, recursive
  * save scanning, multi-XUID latest-selection, and LocalCache fallback.
  */
 

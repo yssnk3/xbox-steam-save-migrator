@@ -2,7 +2,7 @@ import { execSync, execFileSync } from 'child_process';
 
 /**
  * Process Checker — detect whether a game is currently running before migration.
- * Implements the P-01 defense from agent.md: file-lock / access-denied prevention.
+ * Implements the P-01 defense: file-lock / access-denied prevention.
  */
 
 /**

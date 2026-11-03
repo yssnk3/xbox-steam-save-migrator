@@ -14,6 +14,7 @@ import { checkGameRunning, checkPlatformClient, closePlatformClient } from './pr
 import { friendlyError } from './errorMessages.js';
 import { identifySavePath, resolveCounterpartPath, findGameById } from './gameIdentifier.js';
 import { enrichGames, steamIconFor } from './steamMetadata.js';
+import { scanXboxLibrary, launchXboxGame, checkXboxGameRunning, stopCloudSync } from './xboxLibrary.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -513,6 +514,53 @@ app.get('/api/xbox-icon/:pkg', (req, res) => {
       } catch {}
     }
     return res.status(404).json({ success: false, error: '未找到可用的图标资源' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: Scan every installed packaged app, flag Game Pass games.
+// 60s cached; pass ?refresh=1 to force a fresh PowerShell sweep.
+app.get('/api/xbox/library', (req, res) => {
+  try {
+    const result = scanXboxLibrary({ refresh: req.query.refresh === '1' });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: Launch a packaged app by AUMID via shell activation (no Xbox client UI).
+app.post('/api/xbox/launch', (req, res) => {
+  const { aumid } = req.body || {};
+  try {
+    if (!aumid) {
+      return res.status(400).json({ success: false, error: '缺少 aumid' });
+    }
+    res.json({ success: true, message: '启动指令已发出，正在等待游戏进程出现', ...launchXboxGame(aumid) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: Is the packaged app (any top-level exe of the install dir) running?
+app.post('/api/xbox/check-running', (req, res) => {
+  const { installLocation, extraProcessNames } = req.body || {};
+  try {
+    if (!installLocation || !fs.existsSync(installLocation)) {
+      return res.status(400).json({ success: false, error: '缺少或无效的 installLocation' });
+    }
+    res.json({ success: true, ...checkXboxGameRunning(installLocation, extraProcessNames || []) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: Best-effort cloud-sync kill switch — close the Xbox app suite, kill
+// XboxPcAppFT, try to stop GamingServices (admin-gated, failure is tolerated).
+app.post('/api/xbox/stop-cloud-sync', (req, res) => {
+  try {
+    res.json({ success: true, ...stopCloudSync() });
   } catch (err) {
     res.status(500).json({ success: false, error: friendlyError(err) });
   }

@@ -113,3 +113,26 @@ export interface LogEntry {
   type: 'info' | 'success' | 'warning' | 'error';
   message: string;
 }
+
+/** /api/xbox/library 返回的一条已安装打包应用（Game Pass 游戏已标记 isGame）。 */
+export interface XboxInstalledGame {
+  pfn: string;
+  aumid: string;
+  displayName: string;
+  installLocation: string;
+  processNames: string[];
+  isGame: boolean;
+  hasWgs: boolean;
+  fullTrust?: boolean;
+}
+
+/** /api/xbox/stop-cloud-sync 的尽力而为结果报告。 */
+export interface XboxCloudSyncStopResult {
+  xboxAppClosed: boolean;
+  xboxAppStillRunning: string[];
+  ftKilled: boolean;
+  gamesRunning: string[];
+  servicesStopped: string[];
+  servicesFailed: string[];
+  hints: string[];
+}

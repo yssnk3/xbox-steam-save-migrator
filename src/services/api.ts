@@ -1,4 +1,4 @@
-import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport } from '../types';
+import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult } from '../types';
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:'
   ? 'http://localhost:3001'
@@ -254,4 +254,30 @@ export async function deleteCustomGameApi(id: string) {
   return apiFetch(`/api/custom-games/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+// ===== Xbox 游戏库：扫描 / AUMID 直启 / 运行检测 / 云存档同步控制 =====
+
+export async function fetchXboxLibrary(refresh = false): Promise<{ games: XboxInstalledGame[] }> {
+  return apiFetch(`/api/xbox/library${refresh ? '?refresh=1' : ''}`);
+}
+
+export async function launchXboxGame(aumid: string): Promise<{ launched: boolean }> {
+  return apiFetch('/api/xbox/launch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ aumid }),
+  });
+}
+
+export async function checkXboxGameRunning(installLocation: string): Promise<{ running: boolean; matchedNames: string[] }> {
+  return apiFetch('/api/xbox/check-running', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ installLocation }),
+  });
+}
+
+export async function stopXboxCloudSync(): Promise<XboxCloudSyncStopResult> {
+  return apiFetch('/api/xbox/stop-cloud-sync', { method: 'POST' });
 }

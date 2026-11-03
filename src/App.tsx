@@ -7,6 +7,7 @@ import { GameGrid } from './components/GameGrid';
 import { SaveComparisonModal } from './components/SaveComparisonModal';
 import { PortabilityModal } from './components/PortabilityModal';
 import { BackupManager } from './components/BackupManager';
+import XboxLibraryPanel from './components/XboxLibraryPanel';
 import { ManualConverter } from './components/ManualConverter';
 import { IdentifyMigratePanel } from './components/IdentifyMigratePanel';
 import { LogConsole } from './components/LogConsole';
@@ -18,7 +19,7 @@ import { Plus, Wrench, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 
 export const App: React.FC = () => {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'games' | 'backups'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'backups' | 'xbox'>('games');
   const [games, setGames] = useState<GameItem[]>([]);
   const [loadingGames, setLoadingGames] = useState(false);
 
@@ -328,7 +329,7 @@ export const App: React.FC = () => {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <button
                   onClick={() => setShowCustomGameModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-300 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-ink-surface/[0.04] hover:bg-ink-surface/[0.08] border border-white/[0.08] text-zinc-300 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   <span>添加自定义游戏</span>
@@ -336,7 +337,7 @@ export const App: React.FC = () => {
 
                 <button
                   onClick={() => setAdvancedOpen(!advancedOpen)}
-                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-300 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-ink-surface/[0.04] hover:bg-ink-surface/[0.08] border border-white/[0.08] text-zinc-300 transition-colors"
                 >
                   <Wrench className="w-4 h-4" />
                   <span>高级 WGS 工具</span>
@@ -351,8 +352,10 @@ export const App: React.FC = () => {
               )}
             </div>
           </>
-        ) : (
+        ) : activeTab === 'backups' ? (
           <BackupManager onAddLog={addLog} />
+        ) : (
+          <XboxLibraryPanel onAddLog={addLog} />
         )}
       </main>
 
@@ -393,7 +396,7 @@ export const App: React.FC = () => {
       {!logVisible && (
         <button
           onClick={() => setLogVisible(true)}
-          className="fixed bottom-4 right-4 z-40 px-3 py-2 text-xs font-semibold rounded-lg glass-panel text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5"
+          className="fixed bottom-4 right-4 z-40 px-3 py-2 text-xs font-semibold rounded-card glass-panel text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5"
           title="打开运行日志"
         >
           <Terminal className="w-3.5 h-3.5" />
