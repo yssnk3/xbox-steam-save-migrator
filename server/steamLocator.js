@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { getDataFilePath } from './dataDir.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -249,7 +250,7 @@ export function getSteamEnvironment() {
 // Read user-supplied extra Steam root directories from custom_paths.txt.
 export function loadCustomPaths() {
   const paths = [];
-  const configPath = path.join(__dirname, '..', 'custom_paths.txt');
+  const configPath = getDataFilePath('custom_paths.txt');
   if (!fs.existsSync(configPath)) return paths;
   try {
     const lines = fs.readFileSync(configPath, 'utf8').split(/\r?\n/);
@@ -271,7 +272,7 @@ export function saveCustomPath(newPath) {
     const exists = paths.some(p => path.resolve(p).toLowerCase() === norm);
     if (!exists) {
       paths.push(newPath);
-      const configPath = path.join(__dirname, '..', 'custom_paths.txt');
+      const configPath = getDataFilePath('custom_paths.txt');
       fs.writeFileSync(configPath, paths.join('\n') + '\n', 'utf8');
     }
     return true;

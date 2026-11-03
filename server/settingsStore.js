@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getSettingsPath } from './dataDir.js';
 
 /**
  * 设置持久化 — 落盘到项目根 settings.json。
@@ -9,7 +10,7 @@ import path from 'path';
  * API Key 只存在服务端，对外一律走 getPublicSettings()（只回 hint，不回明文）。
  */
 
-const STORE_PATH = path.join(process.cwd(), 'settings.json');
+const STORE_PATH = getSettingsPath();
 
 const DEFAULTS = {
   ai: {

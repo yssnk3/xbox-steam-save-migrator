@@ -42,9 +42,26 @@ npm run electron:dev
 npm run electron:build
 ```
 
-产物在 `release/`：`win-unpacked/` 为免安装版（双击 `Steam-Xbox-Save-Migrator.exe` 即用），以及 `release/*.zip`。
+产物在 `release/`：
 
-> **打包失败排查**：若 `electron-builder` 报 `rcedit.exe` / `elevate.exe` 不存在，通常是杀毒软件隔离了 `%LOCALAPPDATA%\electron-builder\Cache` 下的工具。将该目录加入杀软白名单后重试即可。当前仓库配置了 `signAndEditExecutable: false`，可绕开 rcedit 步骤（代价是 exe 缺少图标与版本信息）。
+| 文件 | 说明 |
+|---|---|
+| `Steam-Xbox-Save-Migrator 1.0.0.exe` | **单文件便携版**（约 77MB），双击即用，无需安装 |
+| `win-unpacked/` | 免安装目录版，启动更快（不必先解压） |
+
+> 首次运行单文件版需解压约 77MB，冷启动约 15–25 秒；目录版启动更快。
+
+**数据存放位置**
+
+| 运行方式 | 备份 / 配置 |
+|---|---|
+| 单文件 exe | `%LOCALAPPDATA%\Steam-Xbox-Save-Migrator\` |
+| 目录版 / 开发模式 | 程序所在目录 |
+| 自定义 | 设置环境变量 `SXSM_DATA_DIR` 指向任意目录 |
+
+> 单文件版每次运行会解压到新的临时目录，因此数据绝不能放在程序目录——否则关闭后备份和 AI 配置会全部丢失。
+
+> **打包失败排查**：若 `electron-builder` 报 `rcedit.exe` / `elevate.exe` 不存在，通常是杀毒软件隔离了 `%LOCALAPPDATA%\electron-builder\Cache` 下的工具。处理方式二选一：把该目录加入杀软白名单，或用官方 NSIS 发行包补齐 `nsis-3.0.4.1/` 目录（其中 `Bin/makensis.exe` 必需，`elevate.exe` 便携版下不会被调用，放任意合法 exe 占位即可）。当前仓库配置了 `signAndEditExecutable: false`，可绕开 rcedit 步骤（代价是 exe 缺少图标与版本信息）。
 
 ## 测试
 

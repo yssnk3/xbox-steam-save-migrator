@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import archiver from 'archiver';
 import { execFile } from 'child_process';
+import { getBackupRoot } from './dataDir.js';
 
-const BACKUP_ROOT = path.join(process.cwd(), 'Backups');
+const BACKUP_ROOT = getBackupRoot();
 
 if (!fs.existsSync(BACKUP_ROOT)) {
   fs.mkdirSync(BACKUP_ROOT, { recursive: true });

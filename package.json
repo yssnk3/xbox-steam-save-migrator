@@ -69,6 +69,11 @@
         }
       ],
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "packElevateHelper": false,
+      "oneClick": true,
+      "perMachine": false
     }
   }
 }

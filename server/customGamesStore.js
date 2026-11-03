@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import { getDataFilePath } from './dataDir.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const STORE_PATH = path.join(__dirname, '..', 'custom_games.json');
+const STORE_PATH = getDataFilePath('custom_games.json');
 
 /**
  * User-defined custom games — persisted to custom_games.json.
