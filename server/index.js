@@ -1070,14 +1070,16 @@ app.put('/api/settings', (req, res) => {
   }
 });
 
-// API: 测试 AI 连通性（设置页「测试连接」按钮）
+// API: 测试 AI 连通性（设置页「测试连接」按钮）。
+// 接受表单当前值，未保存也能验证；缺省字段回落到已保存配置。
 app.post('/api/settings/test-ai', async (req, res) => {
   try {
-    const result = await testAiConnection();
+    const { baseUrl, model, apiKey, timeoutMs } = req.body || {};
+    const result = await testAiConnection({ baseUrl, model, apiKey, timeoutMs });
     res.json({ success: true, ...result });
   } catch (err) {
     const code = err instanceof AiError ? err.code : 'AI_UNKNOWN';
-    res.status(400).json({ success: false, error: friendlyError(err), code });
+    res.status(400).json({ success: false, error: err.message || friendlyError(err), code });
   }
 });
 

@@ -328,8 +328,15 @@ export async function saveSettings(patch: {
   });
 }
 
-export async function testAiConnectionApi(): Promise<{ ok: boolean; model: string }> {
-  return apiFetch('/api/settings/test-ai', { method: 'POST' });
+/** 测试 AI 连通性。传入表单当前值即可在保存前验证。 */
+export async function testAiConnectionApi(overrides: {
+  baseUrl?: string; model?: string; apiKey?: string; timeoutMs?: number;
+} = {}): Promise<{ ok: boolean; model: string }> {
+  return apiFetch('/api/settings/test-ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(overrides),
+  });
 }
 
 // ===== AI 失败诊断 =====

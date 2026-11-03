@@ -50,7 +50,8 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   onGotoBackups,
 }) => {
   const toast = useToast();
-  const [aiReady, setAiReady] = useState<boolean | null>(null);
+  // 'ready' = 可直接分析；'disabled' = 有密钥但未启用；'unconfigured' = 没有密钥
+  const [aiState, setAiState] = useState<'loading' | 'ready' | 'disabled' | 'unconfigured'>('loading');
   const [explaining, setExplaining] = useState(false);
   const [result, setResult] = useState<AiExplanation | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +66,12 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
     let cancelled = false;
     fetchSettings()
       .then(({ settings }) => {
-        if (!cancelled) setAiReady(settings.ai.enabled && settings.ai.apiKeySet);
+        if (cancelled) return;
+        if (!settings.ai.apiKeySet) setAiState('unconfigured');
+        else if (!settings.ai.enabled) setAiState('disabled');
+        else setAiState('ready');
       })
-      .catch(() => { if (!cancelled) setAiReady(false); });
+      .catch(() => { if (!cancelled) setAiState('unconfigured'); });
     return () => { cancelled = true; };
   }, []);
 
@@ -171,14 +175,24 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
           <section className="px-5 py-4">
             {!result && !explaining && (
               <div className="text-center py-6">
-                {aiReady === false ? (
+                {aiState === 'unconfigured' ? (
                   <>
                     <p className="text-[12.5px] text-ink-muted mb-3">
-                      AI 助手尚未配置，无法分析失败原因
+                      尚未填写 API Key，无法分析失败原因
                     </p>
                     <button onClick={onGotoSettings} className="btn-primary px-3.5 py-2 text-[12.5px] inline-flex items-center gap-2">
                       <SettingsIcon className="w-3.5 h-3.5" />
                       去设置中配置
+                    </button>
+                  </>
+                ) : aiState === 'disabled' ? (
+                  <>
+                    <p className="text-[12.5px] text-ink-muted mb-3">
+                      API Key 已保存，但 AI 助手处于「未启用」状态
+                    </p>
+                    <button onClick={onGotoSettings} className="btn-primary px-3.5 py-2 text-[12.5px] inline-flex items-center gap-2">
+                      <SettingsIcon className="w-3.5 h-3.5" />
+                      去设置中启用
                     </button>
                   </>
                 ) : (
@@ -188,7 +202,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                     </p>
                     <button
                       onClick={runExplain}
-                      disabled={aiReady === null}
+                      disabled={aiState !== 'ready'}
                       className="btn-primary px-3.5 py-2 text-[12.5px] inline-flex items-center gap-2"
                     >
                       <Sparkles className="w-3.5 h-3.5" />

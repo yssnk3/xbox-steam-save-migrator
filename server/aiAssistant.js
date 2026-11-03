@@ -100,7 +100,14 @@ export async function explainFailure(context) {
   const settings = readSettings().ai;
 
   if (!settings.enabled) {
-    throw new AiError('AI_DISABLED', 'AI 助手未启用，请先到「设置」中开启并填写 API 配置');
+    // Distinguish "turned off" from "never configured" — telling a user who
+    // already saved a key that it is missing reads like the key was lost.
+    throw new AiError(
+      'AI_DISABLED',
+      settings.apiKey
+        ? 'AI 助手已配置密钥但处于「未启用」状态，请到「设置」中勾选启用'
+        : 'AI 助手未启用，请先到「设置」中开启并填写 API 配置',
+    );
   }
   if (!settings.apiKey) {
     throw new AiError('AI_NOT_CONFIGURED', '尚未填写 API Key，请先到「设置」中配置');
@@ -168,12 +175,30 @@ export async function explainFailure(context) {
   return { text: text.trim(), model: data.model || settings.model };
 }
 
-/** Lightweight connectivity probe used by the settings page "测试连接" button. */
-export async function testAiConnection() {
-  const settings = readSettings().ai;
+/**
+ * Lightweight connectivity probe used by the settings page "测试连接" button.
+ *
+ * Accepts the form's current values so the user can verify a key BEFORE saving
+ * it — previously this read only the persisted config, so testing a freshly
+ * typed key silently probed the old (often empty) one and looked like the key
+ * had not been stored.
+ *
+ * @param {{baseUrl?: string, model?: string, apiKey?: string, timeoutMs?: number}} [overrides]
+ */
+export async function testAiConnection(overrides = {}) {
+  const saved = readSettings().ai;
+  const settings = {
+    baseUrl: (overrides.baseUrl || saved.baseUrl || '').replace(/\/+$/, ''),
+    model: overrides.model || saved.model,
+    // Empty string means "user typed nothing" → fall back to the stored key.
+    apiKey: overrides.apiKey || saved.apiKey,
+    timeoutMs: Number(overrides.timeoutMs) || saved.timeoutMs,
+  };
+
+  if (!settings.baseUrl) throw new AiError('AI_NOT_CONFIGURED', '尚未填写 API 地址（Base URL）');
   if (!settings.apiKey) throw new AiError('AI_NOT_CONFIGURED', '尚未填写 API Key');
 
-  const url = `${settings.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+  const url = `${settings.baseUrl}/chat/completions`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(settings.timeoutMs, 15000));
 
@@ -191,6 +216,9 @@ export async function testAiConnection() {
     if (res.status === 401 || res.status === 403) {
       throw new AiError('AI_AUTH', `API Key 被拒绝（HTTP ${res.status}）`);
     }
+    if (res.status === 404) {
+      throw new AiError('AI_ENDPOINT', `接口地址不存在（HTTP 404）：${url}`);
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new AiError('AI_HTTP', `HTTP ${res.status}：${body.slice(0, 160)}`);
@@ -203,7 +231,8 @@ export async function testAiConnection() {
   } catch (err) {
     if (err instanceof AiError) throw err;
     if (err && err.name === 'AbortError') throw new AiError('AI_TIMEOUT', '连接超时');
-    throw new AiError('AI_NETWORK', `连接失败：${err?.message || String(err)}`);
+    const detail = err?.cause?.code || err?.message || String(err);
+    throw new AiError('AI_NETWORK', `连接失败：${detail}`);
   } finally {
     clearTimeout(timer);
   }

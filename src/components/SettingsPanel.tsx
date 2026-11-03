@@ -57,8 +57,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // 用户刚填了密钥却没勾启用 → 自动启用，否则保存后仍无法分析，看起来像"没存上"。
+      const willHaveKey = apiKey.trim() !== '' || (Boolean(settings?.ai.apiKeySet) && !clearKey);
+      const nextEnabled = enabled || (apiKey.trim() !== '' && !clearKey);
+
       const patch: Parameters<typeof saveSettings>[0] = {
-        ai: { enabled, baseUrl, model, timeoutMs: Number(timeoutMs) },
+        ai: { enabled: nextEnabled, baseUrl, model, timeoutMs: Number(timeoutMs) },
         backup: { keepCount: Number(keepCount) },
       };
       // undefined = keep existing key; '' = explicitly clear it.
@@ -67,10 +71,17 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
 
       const { settings: s } = await saveSettings(patch);
       setSettings(s);
+      setEnabled(s.ai.enabled);
       setApiKey('');
       setClearKey(false);
-      toast('设置已保存', 'success');
-      onAddLog('设置已更新', 'success');
+
+      const hint = !willHaveKey
+        ? '设置已保存（未填写 API Key，AI 功能不可用）'
+        : s.ai.enabled
+          ? '设置已保存，AI 助手已启用'
+          : '设置已保存，AI 助手未启用';
+      toast(hint, willHaveKey ? 'success' : 'warning');
+      onAddLog(hint, willHaveKey ? 'success' : 'warning');
     } catch (err) {
       toast(`保存失败：${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
@@ -82,7 +93,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
     setTesting(true);
     setTestResult(null);
     try {
-      const r = await testAiConnectionApi();
+      // 用表单当前值测试：用户填完 key 不必先保存就能验证。
+      const r = await testAiConnectionApi({
+        baseUrl,
+        model,
+        apiKey: apiKey.trim() || undefined,
+        timeoutMs: Number(timeoutMs),
+      });
       setTestResult({ ok: true, message: `连接成功，模型：${r.model}` });
       toast('AI 连接正常', 'success');
     } catch (err) {
