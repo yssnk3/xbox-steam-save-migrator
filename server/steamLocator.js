@@ -4,6 +4,7 @@ import os from 'os';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { getDataFilePath } from './dataDir.js';
+import { readSettings } from './settingsStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,14 @@ function readRegistryValue(keyPath, valueName) {
  */
 export function discoverSteamInstallPaths() {
   const rawPaths = [];
+
+  // 0. 用户手动指定的根目录优先（设置页写入）——自动探测失败时的兜底
+  try {
+    const override = readSettings().paths?.steamRoot;
+    if (override) rawPaths.push(override);
+  } catch {
+    // settings unavailable — keep probing
+  }
 
   // 1. Registry HKCU\Software\Valve\Steam → SteamPath (most authoritative)
   const hkcu = readRegistryValue('HKCU\\Software\\Valve\\Steam', 'SteamPath');

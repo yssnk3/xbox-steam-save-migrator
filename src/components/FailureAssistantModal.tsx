@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { X, Sparkles, Loader2, AlertTriangle, RefreshCw, Settings as SettingsIcon, ChevronRight, FileWarning } from 'lucide-react';
-import { FailureContext, AiExplanation } from '../types';
-import { explainFailureApi, fetchSettings } from '../services/api';
+import { FailureContext, AiExplanation, AiHistoryItem } from '../types';
+import { explainFailureApi, fetchSettings, fetchAiHistory, fetchAiHistoryEntry, deleteAiHistoryApi } from '../services/api';
 import { useToast } from './Toast';
 
 interface FailureAssistantModalProps {
   context: FailureContext;
   /** Raw outcome description shown at the top (e.g. "落盘校验未通过"). */
   headline: string;
+  /** 最近运行日志，作为诊断上下文一并送给模型 */
+  recentLogs?: { type?: string; message: string }[];
   onClose: () => void;
   onGotoSettings: () => void;
   onGotoBackups: () => void;
@@ -45,6 +47,7 @@ const SECTION_ACCENT: Record<string, string> = {
 const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   context,
   headline,
+  recentLogs = [],
   onClose,
   onGotoSettings,
   onGotoBackups,
@@ -55,6 +58,11 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const [explaining, setExplaining] = useState(false);
   const [result, setResult] = useState<AiExplanation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 多轮：每次问答压入，首轮为 null（问题就是诊断这次失败）
+  const [turns, setTurns] = useState<{ question: string | null; answer: string; model: string }[]>([]);
+  const [followUp, setFollowUp] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<AiHistoryItem[]>([]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -75,12 +83,57 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
     return () => { cancelled = true; };
   }, []);
 
-  const runExplain = async () => {
+  // 打开历史抽屉时才拉列表，避免每次弹窗都请求
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    try {
+      const { history: list } = await fetchAiHistory();
+      setHistory(list);
+    } catch {
+      setHistory([]);
+    }
+  };
+
+  const loadHistoryEntry = async (id: string) => {
+    try {
+      const { entry } = await fetchAiHistoryEntry(id);
+      setTurns([{ question: entry.question, answer: entry.answer, model: entry.model || '' }]);
+      setResult({ text: entry.answer, model: entry.model || '' });
+      setHistoryOpen(false);
+    } catch (e: any) {
+      toast(`读取历史失败：${e.message}`, 'error');
+    }
+  };
+
+  const removeHistory = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteAiHistoryApi(id);
+      setHistory(prev => prev.filter(h => h.id !== id));
+    } catch {
+      toast('删除失败', 'error');
+    }
+  };
+
+  const runExplain = async (question?: string) => {
     setExplaining(true);
     setError(null);
     try {
-      const r = await explainFailureApi(context);
+      // 把已有的问答转成 OpenAI messages 历史
+      const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+      for (const t of turns) {
+        if (t.question) messages.push({ role: 'user', content: t.question });
+        messages.push({ role: 'assistant', content: t.answer });
+      }
+      if (question) messages.push({ role: 'user', content: question });
+
+      const r = await explainFailureApi(context, {
+        messages,
+        logs: recentLogs,
+      });
+      setTurns(prev => [...prev, { question: question || null, answer: r.text, model: r.model }]);
       setResult(r);
+      if (question) setFollowUp('');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
@@ -201,7 +254,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                       可以让 AI 结合当前现场信息分析原因并给出解决方案
                     </p>
                     <button
-                      onClick={runExplain}
+                      onClick={() => runExplain()}
                       disabled={aiState !== 'ready'}
                       className="btn-primary px-3.5 py-2 text-[12px] inline-flex items-center gap-2"
                     >
@@ -223,7 +276,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
             {error && !explaining && (
               <div className="text-center py-6 space-y-3">
                 <p className="text-[12px] text-ink-danger break-words">{error}</p>
-                <button onClick={runExplain} className="btn-ghost px-3 py-1.5 text-[12px] inline-flex items-center gap-1.5">
+                <button onClick={() => runExplain()} className="btn-ghost px-3 py-1.5 text-[12px] inline-flex items-center gap-1.5">
                   <RefreshCw className="w-3 h-3" />
                   重试
                 </button>
@@ -232,32 +285,116 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
 
             {result && !explaining && (
               <div className="space-y-4">
-                {parseSections(result.text).map((sec, i) => (
-                  <div key={i}>
-                    <h4 className={`text-[12px] font-medium mb-1.5 ${SECTION_ACCENT[sec.label] || 'text-ink-text'}`}>
-                      {sec.label}
-                    </h4>
-                    {sec.body.length === 1 ? (
-                      <p className="text-[12px] text-ink-text leading-relaxed">{sec.body[0]}</p>
-                    ) : (
-                      <ul className="space-y-1">
-                        {sec.body.map((b, j) => (
-                          <li key={j} className="text-[12px] text-ink-text leading-relaxed flex gap-2">
-                            <ChevronRight className="w-3 h-3 text-ink-faint mt-1 shrink-0" />
-                            <span>{b}</span>
-                          </li>
-                        ))}
-                      </ul>
+                {/* 对话流：每轮一问一答 */}
+                {turns.map((turn, ti) => (
+                  <div key={ti} className="space-y-2">
+                    {turn.question && (
+                      <div className="flex justify-end">
+                        <div className="max-w-[85%] px-3 py-2 rounded-card bg-ink-elevated text-[12px] text-ink-text">
+                          {turn.question}
+                        </div>
+                      </div>
                     )}
+                    <div className="space-y-3">
+                      {parseSections(turn.answer).map((sec, i) => (
+                        <div key={i}>
+                          <h4 className={`text-[12px] font-medium mb-1.5 ${SECTION_ACCENT[sec.label] || 'text-ink-text'}`}>
+                            {sec.label}
+                          </h4>
+                          {sec.body.length === 1 ? (
+                            <p className="text-[12px] text-ink-text leading-relaxed">{sec.body[0]}</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {sec.body.map((b, j) => (
+                                <li key={j} className="text-[12px] text-ink-text leading-relaxed flex gap-2">
+                                  <ChevronRight className="w-3 h-3 text-ink-faint mt-1 shrink-0" />
+                                  <span>{b}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
-                <div className="flex items-center justify-between pt-2 border-t border-ink-borderSoft">
-                  <span className="font-mono text-[11px] text-ink-faint">模型：{result.model}</span>
-                  <button onClick={runExplain} className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3" />
-                    重新分析
-                  </button>
+
+                {/* 追问输入 */}
+                <div className="pt-2 border-t border-ink-borderSoft">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={followUp}
+                      onChange={e => setFollowUp(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && followUp.trim() && !explaining) {
+                          runExplain(followUp.trim());
+                        }
+                      }}
+                      placeholder="继续追问，例如：那具体怎么恢复备份？"
+                      className="input-inset flex-1 px-3 py-2 text-[12px]"
+                    />
+                    <button
+                      onClick={() => followUp.trim() && runExplain(followUp.trim())}
+                      disabled={!followUp.trim() || explaining}
+                      className="btn-primary px-3 py-2 text-[12px] shrink-0"
+                    >
+                      追问
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="t-mono">模型：{turns[turns.length - 1]?.model || result.model}</span>
+                    <div className="flex items-center gap-3">
+                      <button onClick={openHistory} className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">
+                        <HistoryIcon />
+                        历史
+                      </button>
+                      <button onClick={() => { setTurns([]); setResult(null); }} className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3" />
+                        重新分析
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              </div>
+            )}
+
+            {/* 历史抽屉 */}
+            {historyOpen && (
+              <div className="mt-4 pt-3 border-t border-ink-borderSoft">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[12px] text-ink-muted">最近的诊断记录</span>
+                  <button onClick={() => setHistoryOpen(false)} className="text-[11px] text-ink-faint hover:text-ink-text">收起</button>
+                </div>
+                {history.length === 0 ? (
+                  <p className="t-meta py-3">还没有诊断记录</p>
+                ) : (
+                  <ul className="space-y-1 max-h-52 overflow-y-auto">
+                    {history.map(h => (
+                      <li key={h.id}>
+                        <button
+                          onClick={() => loadHistoryEntry(h.id)}
+                          className="w-full text-left px-2 py-1.5 rounded-btn hover:bg-ink-elevated transition-colors flex items-start gap-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] text-ink-text truncate">
+                              {h.gameName || '未识别游戏'}
+                              {h.code ? ` · ${h.code}` : ''}
+                            </div>
+                            <div className="t-meta truncate">{h.answerPreview}</div>
+                          </div>
+                          <span className="t-mono shrink-0">{new Date(h.createdAt).toLocaleDateString('zh-CN')}</span>
+                          <span
+                            onClick={e => removeHistory(h.id, e)}
+                            className="shrink-0 text-ink-faint hover:text-ink-danger px-1"
+                            title="删除"
+                          >
+                            ×
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </section>
@@ -277,6 +414,14 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
     </div>
   );
 };
+
+const HistoryIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
 
 const CornerIcon: React.FC = () => (
   <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

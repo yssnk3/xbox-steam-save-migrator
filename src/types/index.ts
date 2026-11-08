@@ -124,13 +124,46 @@ export interface AiSettings {
   baseUrl: string;
   model: string;
   timeoutMs: number;
+  autoAnalyze: boolean;
   apiKeySet: boolean;
   apiKeyHint: string;
+}
+
+/** 外观设置：主题模式 + 预设强调色 */
+export interface AppearanceSettings {
+  theme: 'system' | 'light' | 'dark';
+  accent: 'neutral' | 'blue' | 'green' | 'orange' | 'violet';
+}
+
+/** 手动覆盖的根目录；空串表示自动探测 */
+export interface PathSettings {
+  steamRoot: string;
+  xboxPackagesRoot: string;
+}
+
+/** GET /api/env 的返回：启动自检结果 */
+export interface EnvInfo {
+  steam: { detected: boolean; dirs: string[]; userCount: number; override: string };
+  xbox: { detected: boolean; packagesRoot: string; packageCount: number; override: string };
+}
+
+/** AI 诊断历史条目（列表视图） */
+export interface AiHistoryItem {
+  id: string;
+  createdAt: string;
+  gameName: string | null;
+  direction: string | null;
+  code: string | null;
+  question: string | null;
+  answerPreview: string;
+  model: string | null;
 }
 
 export interface AppSettings {
   ai: AiSettings;
   backup: { keepCount: number };
+  paths: PathSettings;
+  appearance: AppearanceSettings;
   storePath: string;
 }
 

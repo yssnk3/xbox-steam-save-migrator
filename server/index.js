@@ -5,7 +5,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { exec, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { scanInstalledGames, resolveAppxInfos, readAppxManifestInfo } from './gameDetector.js';
+import { scanInstalledGames, resolveAppxInfos, readAppxManifestInfo, getXboxPackagesDir } from './gameDetector.js';
 import { extractWgsToFolder, parseContainersIndex, parseContainerFolderFiles, updateWgsInPlace, hasExistingWgsStructure } from './wgsEngine.js';
 import { listSteamCloudMirrors, predictSteamToXbox, predictXboxToSteam } from './portability.js';
 import { createBackup, listBackups, restoreBackup, restoreBackupAuto, deleteBackup, pruneBackups } from './backupManager.js';
@@ -16,7 +16,9 @@ import { identifySavePath, resolveCounterpartPath, findGameById } from './gameId
 import { enrichGames, steamIconFor } from './steamMetadata.js';
 import { scanXboxLibrary, launchXboxGame, checkXboxGameRunning, stopCloudSync } from './xboxLibrary.js';
 import { getPublicSettings, writeSettings, readSettings } from './settingsStore.js';
+import { getSteamEnvironment } from './steamLocator.js';
 import { explainFailure, testAiConnection, AiError } from './aiAssistant.js';
+import { listAiHistory, getAiHistoryEntry, appendAiHistory, deleteAiHistory, clearAiHistory } from './aiHistoryStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1061,6 +1063,43 @@ app.get('/api/settings', (req, res) => {
   }
 });
 
+// API: 环境自检 — 启动时告诉前端 Steam / Xbox 是否被正确探测到。
+// 前端据此在顶部显示可操作的提示条（而不是让用户对着空列表猜）。
+app.get('/api/env', (req, res) => {
+  try {
+    const steamEnv = getSteamEnvironment();
+    const packagesRoot = getXboxPackagesDir();
+    let packageCount = 0;
+    try {
+      if (fs.existsSync(packagesRoot)) {
+        packageCount = fs.readdirSync(packagesRoot).length;
+      }
+    } catch {
+      // 无权限读取时保持 0，detected 仍以目录存在为准
+    }
+    const settings = readSettings();
+    res.json({
+      success: true,
+      env: {
+        steam: {
+          detected: Boolean(steamEnv.steamDetected),
+          dirs: steamEnv.steamDirs || [],
+          userCount: steamEnv.steamUserCount || 0,
+          override: settings.paths?.steamRoot || '',
+        },
+        xbox: {
+          detected: fs.existsSync(packagesRoot),
+          packagesRoot,
+          packageCount,
+          override: settings.paths?.xboxPackagesRoot || '',
+        },
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
 app.put('/api/settings', (req, res) => {
   try {
     writeSettings(req.body || {});
@@ -1087,11 +1126,68 @@ app.post('/api/settings/test-ai', async (req, res) => {
 app.post('/api/ai/explain-failure', async (req, res) => {
   try {
     const context = req.body?.context || {};
-    const result = await explainFailure(context);
+    const messages = req.body?.messages;
+    const logs = req.body?.logs;
+    const result = await explainFailure(context, { messages, logs });
+
+    // 首轮（无历史）才落一条历史记录，追问不重复记
+    if (!Array.isArray(messages) || messages.length === 0) {
+      try {
+        appendAiHistory({
+          gameName: context.gameName || null,
+          direction: context.direction || null,
+          code: context.code || null,
+          question: context.error || null,
+          answer: result.text,
+          model: result.model,
+        });
+      } catch {
+        // 历史写入失败不影响本次回答
+      }
+    }
+
     res.json({ success: true, ...result });
   } catch (err) {
     const code = err instanceof AiError ? err.code : 'AI_UNKNOWN';
     res.status(400).json({ success: false, error: err.message || friendlyError(err), code });
+  }
+});
+
+// API: AI 诊断历史
+app.get('/api/ai/history', (req, res) => {
+  try {
+    res.json({ success: true, history: listAiHistory() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+app.get('/api/ai/history/:id', (req, res) => {
+  try {
+    const entry = getAiHistoryEntry(req.params.id);
+    if (!entry) return res.status(404).json({ success: false, error: '记录不存在' });
+    res.json({ success: true, entry });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+app.delete('/api/ai/history/:id', (req, res) => {
+  try {
+    const ok = deleteAiHistory(req.params.id);
+    if (!ok) return res.status(404).json({ success: false, error: '记录不存在' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+app.delete('/api/ai/history', (req, res) => {
+  try {
+    clearAiHistory();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
   }
 });
 

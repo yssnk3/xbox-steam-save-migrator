@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark" data-accent="neutral">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -9,8 +9,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      // 首帧前按缓存上色，避免浅色用户看到一帧深色
+      try {
+        var raw = localStorage.getItem('sxsm-appearance');
+        var a = raw ? JSON.parse(raw) : {};
+        var mode = a.theme === 'light' || a.theme === 'dark' ? a.theme : 'system';
+        var resolved = mode === 'system'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.accent = a.accent || 'neutral';
+        document.documentElement.dataset.themeMode = mode;
+      } catch (e) {}
+    </script>
   </head>
-  <body class="bg-[#0B0B16] text-[#E7E9F0] font-sans antialiased selection:bg-white/15 selection:text-white min-h-screen">
+  <body class="font-sans antialiased min-h-screen">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

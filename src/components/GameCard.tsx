@@ -43,7 +43,7 @@ const SideColumn: React.FC<{
   className?: string;
 }> = ({ label, detected, size, lastModified, path, emptyText, onOpen, className = '' }) => (
   <div className={`min-w-0 flex-1 ${className}`}>
-    <div className="flex items-center gap-1.5 whitespace-nowrap">
+    <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden">
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${detected ? 'bg-ink-success' : 'bg-ink-border'}`} />
       <span className="text-[12px] text-ink-muted shrink-0">{label}</span>
       {detected && size !== undefined && size > 0 && (
@@ -134,10 +134,10 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
 
   return (
     <div className={`px-3 py-2.5 transition-colors hover:bg-ink-elevated/30 ${hasSaves ? '' : 'opacity-50'}`}>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-4">
 
         {/* 身份列 */}
-        <div className="flex items-center gap-2.5 min-w-0 lg:w-64 lg:shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0 xl:w-56 xl:shrink-0">
           <div className="w-7 h-7 rounded-btn shrink-0 overflow-hidden border border-ink-border bg-ink-base flex items-center justify-center">
             {game.iconUrl && !iconFailed ? (
               <img
@@ -181,11 +181,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
           path={game.xboxWgsPath}
           emptyText="未检索到 WGS"
           onOpen={game.isXboxDetected ? () => handleOpenFolder(game.xboxWgsPath, 'xbox') : undefined}
-          className="lg:border-l lg:border-ink-border lg:pl-4"
+          className="xl:border-l xl:border-ink-border xl:pl-4"
         />
 
         {/* 操作 */}
-        <div className="flex items-center gap-1 lg:shrink-0">
+        <div className="flex items-center gap-1 xl:shrink-0">
           {recommendedDirection === 'xbox_to_steam' ? (
             <>
               {directionBtn('xbox_to_steam')}

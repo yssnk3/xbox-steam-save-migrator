@@ -4,6 +4,7 @@ import { execSync, execFileSync } from 'child_process';
 import { GAME_DATABASE } from './gameDatabase.js';
 import { getCustomGames } from './customGamesStore.js';
 import { getSteamEnvironment } from './steamLocator.js';
+import { readSettings } from './settingsStore.js';
 
 /**
  * Game Detector Service
@@ -213,9 +214,23 @@ function wildcardMatch(pattern, text) {
   }
 }
 
-export function findXboxWgsFolder(packageNamePattern) {
+/**
+ * Root directory holding packaged-app data (`Packages`).
+ * 用户在设置页手动指定时优先，否则回落 %LOCALAPPDATA%\Packages。
+ */
+export function getXboxPackagesDir() {
+  try {
+    const override = readSettings().paths?.xboxPackagesRoot;
+    if (override) return override;
+  } catch {
+    // settings unavailable — fall through to default
+  }
   const localAppData = process.env.LOCALAPPDATA || 'C:\\Users\\Default\\AppData\\Local';
-  const packagesDir = path.join(localAppData, 'Packages');
+  return path.join(localAppData, 'Packages');
+}
+
+export function findXboxWgsFolder(packageNamePattern) {
+  const packagesDir = getXboxPackagesDir();
 
   if (!fs.existsSync(packagesDir)) return null;
 
@@ -437,8 +452,7 @@ export function scanInstalledGames() {
 
   // Deep scan Packages for unlisted Xbox games (covers installed Game Pass games
   // not in GAME_DATABASE or custom games).
-  const localAppData = process.env.LOCALAPPDATA || 'C:\\Users\\Default\\AppData\\Local';
-  const packagesDir = path.join(localAppData, 'Packages');
+  const packagesDir = getXboxPackagesDir();
 
   if (fs.existsSync(packagesDir)) {
     // Dedup by package NAME (case-insensitive), not by filesystem path: results

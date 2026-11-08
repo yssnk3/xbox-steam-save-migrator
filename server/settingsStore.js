@@ -19,11 +19,24 @@ const DEFAULTS = {
     apiKey: '',
     model: 'gpt-4o-mini',
     timeoutMs: 20000,
+    autoAnalyze: false,
   },
   backup: {
     keepCount: 50,
   },
+  // 用户手动覆盖的根目录；空串表示自动探测
+  paths: {
+    steamRoot: '',
+    xboxPackagesRoot: '',
+  },
+  appearance: {
+    theme: 'system',   // 'system' | 'light' | 'dark'
+    accent: 'neutral', // 'neutral' | 'blue' | 'green' | 'orange' | 'violet'
+  },
 };
+
+const THEMES = ['system', 'light', 'dark'];
+const ACCENTS = ['neutral', 'blue', 'green', 'orange', 'violet'];
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -90,6 +103,22 @@ export function writeSettings(patch = {}) {
     }
   }
 
+  if (patch.paths && typeof patch.paths === 'object') {
+    for (const key of Object.keys(DEFAULTS.paths)) {
+      const value = patch.paths[key];
+      if (value === undefined) continue;
+      // 空串 = 清除覆盖，回到自动探测
+      next.paths[key] = value === null ? '' : String(value).trim();
+    }
+  }
+
+  if (patch.appearance && typeof patch.appearance === 'object') {
+    const theme = patch.appearance.theme;
+    if (theme !== undefined && THEMES.includes(theme)) next.appearance.theme = theme;
+    const accent = patch.appearance.accent;
+    if (accent !== undefined && ACCENTS.includes(accent)) next.appearance.accent = accent;
+  }
+
   // Clamp numeric fields to sane ranges so a typo can't hang the UI.
   const timeout = Number(next.ai.timeoutMs);
   next.ai.timeoutMs = Number.isFinite(timeout) ? Math.min(120000, Math.max(3000, timeout)) : DEFAULTS.ai.timeoutMs;
@@ -99,6 +128,7 @@ export function writeSettings(patch = {}) {
   next.ai.baseUrl = String(next.ai.baseUrl || DEFAULTS.ai.baseUrl).replace(/\/+$/, '');
   next.ai.model = String(next.ai.model || DEFAULTS.ai.model);
   next.ai.enabled = Boolean(next.ai.enabled);
+  next.ai.autoAnalyze = Boolean(next.ai.autoAnalyze);
 
   writeAtomic(next);
   return next;
@@ -114,12 +144,15 @@ export function getPublicSettings() {
       baseUrl: s.ai.baseUrl,
       model: s.ai.model,
       timeoutMs: s.ai.timeoutMs,
+      autoAnalyze: s.ai.autoAnalyze,
       apiKeySet: key.length > 0,
       apiKeyHint: key.length > 0 ? `••••${key.slice(-4)}` : '',
     },
     backup: s.backup,
+    paths: s.paths,
+    appearance: s.appearance,
     storePath: STORE_PATH,
   };
 }
 
-export { STORE_PATH, DEFAULTS };
+export { STORE_PATH, DEFAULTS, THEMES, ACCENTS };

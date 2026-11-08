@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Save } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Save, Monitor, Sun, Moon } from 'lucide-react';
+import { ACCENT_OPTIONS, ThemeMode, AccentColor, applyTheme, cacheTheme } from '../theme';
 import { AppSettings } from '../types';
 import { fetchSettings, saveSettings, testAiConnectionApi } from '../services/api';
 import { useToast } from './Toast';
 
 interface SettingsPanelProps {
   onAddLog: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  themeMode: ThemeMode;
+  accent: AccentColor;
+  onThemeChange: (mode: ThemeMode) => void;
+  onAccentChange: (accent: AccentColor) => void;
 }
 
 const INPUT_CLASS =
@@ -13,7 +18,7 @@ const INPUT_CLASS =
 
 const LABEL_CLASS = 'block text-[12px] font-medium text-ink-muted mb-1.5';
 
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog, themeMode, accent, onThemeChange, onAccentChange }) => {
   const toast = useToast();
 
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -30,6 +35,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
   const [apiKey, setApiKey] = useState('');
   const [clearKey, setClearKey] = useState(false);
   const [keepCount, setKeepCount] = useState(50);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -40,9 +46,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
       setBaseUrl(s.ai.baseUrl);
       setModel(s.ai.model);
       setTimeoutMs(s.ai.timeoutMs);
+      setAutoAnalyze(Boolean(s.ai.autoAnalyze));
       setKeepCount(s.backup.keepCount);
       setApiKey('');
       setClearKey(false);
+      if (s.appearance) { applyTheme(s.appearance); cacheTheme(s.appearance); }
     } catch (err) {
       toast(`加载设置失败：${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
@@ -62,8 +70,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
       const nextEnabled = enabled || (apiKey.trim() !== '' && !clearKey);
 
       const patch: Parameters<typeof saveSettings>[0] = {
-        ai: { enabled: nextEnabled, baseUrl, model, timeoutMs: Number(timeoutMs) },
+        ai: { enabled: nextEnabled, baseUrl, model, timeoutMs: Number(timeoutMs), autoAnalyze },
         backup: { keepCount: Number(keepCount) },
+        appearance: { theme: themeMode, accent },
       };
       // undefined = keep existing key; '' = explicitly clear it.
       if (apiKey.trim()) patch.ai!.apiKey = apiKey.trim();
@@ -122,6 +131,62 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
 
   return (
     <div className="space-y-4">
+      {/* 外观 */}
+      <section className="panel p-5">
+        <header className="pb-3 border-b border-ink-borderSoft">
+          <h2 className="t-title">外观</h2>
+          <p className="t-meta mt-0.5">主题与强调色，改动立即生效</p>
+        </header>
+
+        <div className="pt-4 space-y-5">
+          <div>
+            <div className={LABEL_CLASS}>主题</div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: 'system' as ThemeMode, label: '跟随系统', Icon: Monitor },
+                { value: 'light' as ThemeMode, label: '浅色', Icon: Sun },
+                { value: 'dark' as ThemeMode, label: '深色', Icon: Moon },
+              ]).map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => onThemeChange(value)}
+                  className={`px-3 py-2 rounded-btn text-[12px] flex items-center gap-1.5 transition-all ${
+                    themeMode === value ? 'panel-inset text-ink-text' : 'btn-ghost'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className={LABEL_CLASS}>强调色</div>
+            <div className="flex items-center gap-2">
+              {ACCENT_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => onAccentChange(opt.value)}
+                  title={opt.label}
+                  aria-label={opt.label}
+                  className={`w-7 h-7 rounded-full transition-all ${
+                    accent === opt.value ? 'ring-2 ring-offset-2' : 'hover:scale-105'
+                  }`}
+                  style={{
+                    backgroundColor: opt.swatch,
+                    // ring 颜色跟随当前主题文字色，避免固定色在浅色下不可见
+                    ['--tw-ring-color' as any]: 'var(--ink-text)',
+                    ['--tw-ring-offset-color' as any]: 'var(--ink-surface)',
+                  }}
+                />
+              ))}
+            </div>
+            <p className="t-meta mt-1.5">强调色用于焦点框、选中态与少量状态提示</p>
+          </div>
+        </div>
+      </section>
+
       {/* AI 助手 */}
       <section className="panel p-5">
         <header className="flex items-center justify-between gap-3 pb-3 border-b border-ink-borderSoft">
@@ -203,6 +268,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
         </div>
 
         <div className="flex items-center gap-2 pt-4 mt-4 border-t border-ink-borderSoft">
+          <label className="flex items-center gap-2 text-[12px] text-ink-muted cursor-pointer select-none mr-3">
+            <input
+              type="checkbox"
+              checked={autoAnalyze}
+              onChange={e => setAutoAnalyze(e.target.checked)}
+              className="w-3.5 h-3.5"
+            />
+            失败后自动分析
+          </label>
           <button onClick={handleTest} disabled={testing} className="btn-ghost px-3 py-1.5 text-[12px] flex items-center gap-1.5">
             {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
             测试连接

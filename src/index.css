@@ -2,140 +2,238 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   主题变量
+   - 深色为默认（:root），浅色由 [data-theme="light"] 覆盖
+   - 强调色由 [data-accent="..."] 覆盖 --ink-accent
+   - 所有组件类与 Tailwind ink-* 都引用这些变量，切换主题无需改组件
+   ============================================================ */
+:root {
+  --ink-base: #0B0B16;
+  --ink-surface: #14141F;
+  --ink-elevated: #1C1C2C;
+  --ink-raised: #232338;
+  --ink-text: #E7E9F0;
+  --ink-muted: #8B8FA3;
+  --ink-faint: #5A5E72;
+  --ink-border: #262840;
+  --ink-border-soft: rgba(255, 255, 255, 0.06);
+  --ink-solid: #E7E9F0;
+  --ink-solid-hover: #FFFFFF;
+
+  /* 业务语义色 */
+  --ink-success: #34D399;
+  --ink-warning: #FBBF24;
+  --ink-danger: #F43F5E;
+  --ink-x2s: #10B981;
+  --ink-s2x: #38BDF8;
+
+  /* 强调色（由 data-accent 覆盖） */
+  --ink-accent: #E7E9F0;
+  --ink-accent-soft: rgba(231, 233, 240, 0.12);
+
+  /* 新拟态阴影：深色下高光弱、暗影强 */
+  --sh-light: rgba(255, 255, 255, 0.045);
+  --sh-dark: rgba(0, 0, 0, 0.55);
+  --shadow-raise: -4px -4px 10px var(--sh-light), 4px 4px 10px var(--sh-dark);
+  --shadow-inset: inset 3px 3px 6px var(--sh-dark), inset -3px -3px 6px var(--sh-light);
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  --focus-ring: #8B8FA3;
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --ink-base: #E8ECF3;
+  --ink-surface: #E8ECF3;
+  --ink-elevated: #EEF1F7;
+  --ink-raised: #DFE4EE;
+  --ink-text: #1B2030;
+  --ink-muted: #5A6274;
+  --ink-faint: #858CA0;
+  --ink-border: #D2D8E4;
+  --ink-border-soft: rgba(20, 26, 40, 0.07);
+  --ink-solid: #1B2030;
+  --ink-solid-hover: #000000;
+
+  --ink-success: #0F7A5A;
+  --ink-warning: #A15C00;
+  --ink-danger: #C0264A;
+  --ink-x2s: #0B8F6A;
+  --ink-s2x: #0B6E9E;
+
+  /* 浅色下高光更强、暗影更柔，这是新拟态最典型的状态 */
+  --sh-light: rgba(255, 255, 255, 0.95);
+  --sh-dark: rgba(163, 177, 198, 0.55);
+  --shadow-raise: -5px -5px 12px var(--sh-light), 5px 5px 12px var(--sh-dark);
+  --shadow-inset: inset 3px 3px 7px var(--sh-dark), inset -3px -3px 7px var(--sh-light);
+  --shadow-float: 0 14px 36px rgba(120, 135, 160, 0.35);
+
+  --focus-ring: #2F3A55;
+  color-scheme: light;
+}
+
+/* 5 个预设强调色（均已按对比度挑选） */
+[data-accent='blue']   { --ink-accent: #3B82F6; --ink-accent-soft: rgba(59, 130, 246, 0.16); }
+[data-accent='green']  { --ink-accent: #10B981; --ink-accent-soft: rgba(16, 185, 129, 0.16); }
+[data-accent='orange'] { --ink-accent: #F59E0B; --ink-accent-soft: rgba(245, 158, 11, 0.16); }
+[data-accent='violet'] { --ink-accent: #8B5CF6; --ink-accent-soft: rgba(139, 92, 246, 0.16); }
+[data-accent='neutral'] { --ink-accent: var(--ink-text); --ink-accent-soft: rgba(139, 143, 163, 0.16); }
+
 @layer base {
   body {
-    background-color: #0B0B16;
-    color: #E7E9F0;
+    background-color: var(--ink-base);
+    color: var(--ink-text);
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
     font-size: 13px;
     line-height: 1.5;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.18s ease, color 0.18s ease;
   }
 }
 
 @layer components {
-  /* 面板：实色底 + 一条描边，无阴影 */
+  /* 面板：新拟态凸起面，与背景同色，靠双向阴影制造厚度 */
   .panel {
-    background-color: #14141F;
-    border: 1px solid #262840;
-    border-radius: 6px;
+    background-color: var(--ink-surface);
+    border: 1px solid var(--ink-border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-raise);
   }
 
-  /* 主操作按钮：亮底深字，唯一的主行动表达 */
+  /* 凹陷面板：用于侧边栏选中项、输入区 */
+  .panel-inset {
+    background-color: var(--ink-surface);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    box-shadow: var(--shadow-inset);
+  }
+
+  /* 主操作按钮 */
   .btn-primary {
-    background-color: #E7E9F0;
-    color: #0B0B16;
-    border-radius: 4px;
+    background-color: var(--ink-solid);
+    color: var(--ink-base);
+    border-radius: 8px;
     font-weight: 500;
-    transition: background-color 0.12s ease;
+    box-shadow: var(--shadow-raise);
+    transition: background-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
   }
   .btn-primary:hover:not(:disabled) {
-    background-color: #FFFFFF;
+    background-color: var(--ink-solid-hover);
   }
   .btn-primary:active:not(:disabled) {
-    background-color: #CFD3DE;
+    box-shadow: var(--shadow-inset);
+    transform: translateY(1px);
   }
   .btn-primary:disabled {
     opacity: 0.4;
     pointer-events: none;
   }
 
-  /* 次要按钮：描边中性 */
+  /* 次要按钮 */
   .btn-ghost {
     background-color: transparent;
-    color: #8B8FA3;
-    border: 1px solid #262840;
-    border-radius: 4px;
+    color: var(--ink-muted);
+    border: 1px solid var(--ink-border);
+    border-radius: 8px;
     font-weight: 500;
-    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
   }
   .btn-ghost:hover:not(:disabled) {
-    background-color: #1C1C2C;
-    color: #E7E9F0;
-    border-color: #3A3D55;
+    background-color: var(--ink-elevated);
+    color: var(--ink-text);
+    box-shadow: var(--shadow-raise);
+  }
+  .btn-ghost:active:not(:disabled) {
+    box-shadow: var(--shadow-inset);
   }
   .btn-ghost:disabled {
     opacity: 0.4;
     pointer-events: none;
   }
 
-  /* 排版阶梯：全站只用这三档 + mono */
+  /* 输入控件：凹陷 */
+  .input-inset {
+    background-color: var(--ink-surface);
+    color: var(--ink-text);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    box-shadow: var(--shadow-inset);
+    transition: box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+  .input-inset:focus {
+    outline: none;
+    border-color: var(--ink-accent);
+  }
+  .input-inset::placeholder {
+    color: var(--ink-faint);
+  }
+
+  /* 排版阶梯：全站只用这几档 + mono */
   .t-title {
     font-size: 15px;
     font-weight: 600;
     line-height: 1.3;
-    color: #E7E9F0;
+    color: var(--ink-text);
   }
   .t-body {
     font-size: 13px;
     font-weight: 400;
-    color: #E7E9F0;
+    color: var(--ink-text);
   }
   .t-meta {
     font-size: 11px;
     font-weight: 400;
-    color: #5A5E72;
+    color: var(--ink-faint);
   }
   .t-mono {
     font-family: 'JetBrains Mono', Consolas, monospace;
     font-size: 11px;
-    color: #5A5E72;
+    color: var(--ink-faint);
   }
 
-  /* 列表行：用分隔线而不是卡片 */
   .row-divider {
-    border-bottom: 1px solid #1F2033;
+    border-bottom: 1px solid var(--ink-border-soft);
   }
   .row-divider:last-child {
     border-bottom: none;
   }
 }
 
-/* 浮层容器 */
+/* 浮层容器：浮起阴影（不是新拟态，保持可辨识度） */
 .glass-panel {
-  background: #14141F;
-  border: 1px solid #262840;
-  border-radius: 6px;
+  background: var(--ink-surface);
+  border: 1px solid var(--ink-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-float);
 }
 
-/* Toast / Dialog entrance animation */
 @keyframes toast-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes modal-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .modal-animate {
   animation: modal-fade-in 0.14s ease-out;
 }
 
-/* Focus-visible — 中性色，不再用彩色 ring */
+/* 焦点环：必须可见（新拟态低对比，键盘可达性靠它兜底） */
 *:focus-visible {
-  outline: 1px solid #8B8FA3;
-  outline-offset: 1px;
-  border-radius: 3px;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
-/* Dark thin scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -143,15 +241,25 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2E3048;
-  border-radius: 3px;
+  background: var(--ink-border);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3D4060;
+  background: var(--ink-faint);
 }
 
 ::selection {
-  background-color: rgba(231, 233, 240, 0.18);
-  color: #FFFFFF;
+  background-color: var(--ink-accent-soft);
+  color: var(--ink-text);
+}
+
+/* 尊重系统「减少动态效果」 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

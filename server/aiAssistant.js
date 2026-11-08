@@ -69,7 +69,7 @@ function slimVerify(verify) {
 }
 
 /** Build the user message from a failure context assembled by the route. */
-function buildUserMessage(context = {}) {
+function buildUserMessage(context = {}, logs = []) {
   const facts = {
     stage: context.stage || null,
     code: context.code || null,
@@ -81,7 +81,10 @@ function buildUserMessage(context = {}) {
     verify: slimVerify(context.verify),
     warnings: Array.isArray(context.warnings) ? context.warnings.slice(0, 10) : [],
   };
-  return `以下是一次存档移植失败的现场信息（JSON）：\n\n${JSON.stringify(facts, null, 2)}\n\n请诊断这次失败。`;
+  const logLines = logs.length
+    ? `\n\n最近的运行日志（最新在后）：\n${logs.map(l => `[${l.type || 'info'}] ${l.message}`).join('\n')}`
+    : '';
+  return `以下是一次存档移植失败的现场信息（JSON）：\n\n${JSON.stringify(facts, null, 2)}${logLines}\n\n请诊断这次失败。`;
 }
 
 class AiError extends Error {
@@ -94,9 +97,12 @@ class AiError extends Error {
 /**
  * Ask the configured model to explain a migration failure.
  * @param {object} context failure context from the route
+ * @param {object} [options]
+ * @param {{role:'user'|'assistant', content:string}[]} [options.messages] 多轮对话历史
+ * @param {{type?:string, message:string}[]} [options.logs] 最近的运行日志
  * @returns {Promise<{ text: string, model: string }>}
  */
-export async function explainFailure(context) {
+export async function explainFailure(context, options = {}) {
   const settings = readSettings().ai;
 
   if (!settings.enabled) {
@@ -120,6 +126,19 @@ export async function explainFailure(context) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), settings.timeoutMs);
 
+  // 多轮对话：system + 首轮现场信息 + 历史追问
+  const history = Array.isArray(options.messages) ? options.messages : [];
+  const logs = Array.isArray(options.logs) ? options.logs.slice(-30) : [];
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: buildUserMessage(context, logs) },
+  ];
+  for (const m of history) {
+    if (!m || typeof m.content !== 'string') continue;
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    messages.push({ role: m.role, content: m.content.slice(0, 4000) });
+  }
+
   let res;
   try {
     res = await fetch(url, {
@@ -130,10 +149,7 @@ export async function explainFailure(context) {
       },
       body: JSON.stringify({
         model: settings.model,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: buildUserMessage(context) },
-        ],
+        messages,
         temperature: 0.3,
         max_tokens: 1200,
       }),

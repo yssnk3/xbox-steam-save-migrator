@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { GameItem, LogEntry, FailureContext } from './types';
-import { fetchGames, migrateSave, inspectSave } from './services/api';
+import { GameItem, LogEntry, FailureContext, EnvInfo } from './types';
+import { fetchGames, migrateSave, inspectSave, pickFolder } from './services/api';
 import { migrationOutcome, outcomeText } from './utils/migrationOutcome';
 import { buildFailureContext } from './utils/failureContext';
 import FailureAssistantModal from './components/FailureAssistantModal';
-import { Header } from './components/Header';
+import { Sidebar, TabKey } from './components/Sidebar';
+import { EnvBanner } from './components/EnvBanner';
+import { fetchEnv, saveSettings, fetchSettings } from './services/api';
+import { applyCachedTheme, applyTheme, cacheTheme, watchSystemTheme, ThemeMode, AccentColor, DEFAULT_APPEARANCE } from './theme';
 import { GameGrid } from './components/GameGrid';
 import { SaveComparisonModal } from './components/SaveComparisonModal';
 import { PortabilityModal } from './components/PortabilityModal';
@@ -22,7 +25,7 @@ import { Plus, Wrench, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 
 export const App: React.FC = () => {
  const toast = useToast();
- const [activeTab, setActiveTab] = useState<'games' | 'backups' | 'xbox' | 'settings'>('games');
+ const [activeTab, setActiveTab] = useState<TabKey>('games');
  const [games, setGames] = useState<GameItem[]>([]);
  const [loadingGames, setLoadingGames] = useState(false);
 
@@ -35,8 +38,12 @@ export const App: React.FC = () => {
  const [advancedOpen, setAdvancedOpen] = useState(false);
 
  const [logs, setLogs] = useState<LogEntry[]>([]);
- const [failureContext, setFailureContext] = useState<FailureContext | null>(null);
- const [failureHeadline, setFailureHeadline] = useState('');
+  const [failureContext, setFailureContext] = useState<FailureContext | null>(null);
+  const [failureHeadline, setFailureHeadline] = useState('');
+  const [env, setEnv] = useState<EnvInfo | null>(null);
+  const [envDismissed, setEnvDismissed] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [accent, setAccent] = useState<AccentColor>('neutral');
 
  // Confirm dialog state
  const [confirmConfig, setConfirmConfig] = useState<ConfirmDialogConfig | null>(null);
@@ -138,9 +145,48 @@ export const App: React.FC = () => {
  }
  };
 
- useEffect(() => {
- loadGames();
- }, []);
+  const loadEnv = useCallback(async () => {
+    try {
+      const { env: info } = await fetchEnv();
+      setEnv(info);
+    } catch {
+      // 环境自检失败不阻塞主流程
+    }
+  }, []);
+
+  // 启动：先按缓存上色（避免闪白），再从服务端同步权威外观
+  useEffect(() => {
+    const cached = applyCachedTheme();
+    setThemeMode(cached.theme);
+    setAccent(cached.accent);
+    let cancelled = false;
+    fetchSettings()
+      .then(({ settings }) => {
+        if (cancelled || !settings.appearance) return;
+        setThemeMode(settings.appearance.theme);
+        setAccent(settings.appearance.accent);
+        applyTheme(settings.appearance);
+        cacheTheme(settings.appearance);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // 主题/色彩变化立即生效
+  useEffect(() => {
+    applyTheme({ theme: themeMode, accent });
+  }, [themeMode, accent]);
+
+  // 系统主题变化时，仅在「跟随系统」模式下重绘
+  useEffect(() => {
+    const stop = watchSystemTheme(() => themeMode, () => applyTheme({ theme: themeMode, accent }));
+    return stop;
+  }, [themeMode, accent]);
+
+  useEffect(() => {
+    loadGames();
+    loadEnv();
+  }, []);
 
  // Shared migration confirm — unified across all three migration entry points.
  const confirmMigrate = useCallback(async (info: {
@@ -307,18 +353,58 @@ export const App: React.FC = () => {
 
  const detectedBothCount = games.filter(g => g.isSteamDetected && g.isXboxDetected).length;
 
- return (
- <div className="min-h-screen flex flex-col">
- {showWelcome && <WelcomeScreen onDismiss={() => { dismissWelcome(); setShowWelcome(false); }} />}
- <Header
- activeTab={activeTab}
- setActiveTab={setActiveTab}
- onRefresh={loadGames}
- isRefreshing={loadingGames}
- detectedBothCount={detectedBothCount}
- />
+  return (
+    <div className="min-h-screen flex">
+      {showWelcome && <WelcomeScreen onDismiss={() => { dismissWelcome(); setShowWelcome(false); }} />}
 
- <main className="flex-1 max-w-7xl w-full mx-auto p-6 pb-32">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onRefresh={loadGames}
+        isRefreshing={loadingGames}
+        detectedBothCount={detectedBothCount}
+        themeMode={themeMode}
+        onCycleTheme={() => {
+          const next: ThemeMode = themeMode === 'system' ? 'light' : themeMode === 'light' ? 'dark' : 'system';
+          setThemeMode(next);
+          applyTheme({ theme: next, accent });
+          cacheTheme({ theme: next, accent });
+          saveSettings({ appearance: { theme: next, accent } }).catch(() => {});
+        }}
+      />
+
+      <main className="flex-1 min-w-0 p-6 pb-32 max-w-[1400px] mx-auto w-full">
+        {env && !envDismissed && (
+          <EnvBanner
+            env={env}
+            onDismiss={() => setEnvDismissed(true)}
+            onFixSteam={async () => {
+              const folder = await pickFolder({ title: '选择 Steam 安装目录' });
+              if (!folder) return;
+              try {
+                await saveSettings({ paths: { steamRoot: folder } });
+                toast('已保存 Steam 目录，正在重新扫描', 'success');
+                await loadEnv();
+                await loadGames();
+              } catch (e: any) {
+                toast(`保存失败：${e.message}`, 'error');
+              }
+            }}
+            onFixXbox={async () => {
+              const folder = await pickFolder({ title: '选择 Xbox Packages 目录' });
+              if (!folder) return;
+              try {
+                await saveSettings({ paths: { xboxPackagesRoot: folder } });
+                toast('已保存 Xbox 目录，正在重新扫描', 'success');
+                await loadEnv();
+                await loadGames();
+              } catch (e: any) {
+                toast(`保存失败：${e.message}`, 'error');
+              }
+            }}
+          />
+        )}
+
  {activeTab === 'games' ? (
  <>
  {/* Primary entry: pick a save folder → identify → one-click migrate */}
@@ -384,10 +470,24 @@ export const App: React.FC = () => {
  <BackupManager onAddLog={addLog} />
  ) : activeTab === 'xbox' ? (
  <XboxLibraryPanel onAddLog={addLog} />
- ) : (
- <SettingsPanel onAddLog={addLog} />
- )}
- </main>
+        ) : (
+          <SettingsPanel
+            onAddLog={addLog}
+            themeMode={themeMode}
+            accent={accent}
+            onThemeChange={(mode) => {
+              setThemeMode(mode);
+              applyTheme({ theme: mode, accent });
+              cacheTheme({ theme: mode, accent });
+            }}
+            onAccentChange={(next) => {
+              setAccent(next);
+              applyTheme({ theme: themeMode, accent: next });
+              cacheTheme({ theme: themeMode, accent: next });
+            }}
+          />
+        )}
+      </main>
 
  <SaveComparisonModal
  game={selectedGame}
@@ -411,15 +511,16 @@ export const App: React.FC = () => {
  onAddLog={addLog}
  />
 
- {failureContext && (
- <FailureAssistantModal
- context={failureContext}
- headline={failureHeadline}
- onClose={() => setFailureContext(null)}
- onGotoSettings={() => { setFailureContext(null); setActiveTab('settings'); }}
- onGotoBackups={() => { setFailureContext(null); setActiveTab('backups'); }}
- />
- )}
+      {failureContext && (
+        <FailureAssistantModal
+          context={failureContext}
+          headline={failureHeadline}
+          recentLogs={logs.slice(0, 30).map(l => ({ type: l.type, message: l.message }))}
+          onClose={() => setFailureContext(null)}
+          onGotoSettings={() => { setFailureContext(null); setActiveTab('settings'); }}
+          onGotoBackups={() => { setFailureContext(null); setActiveTab('backups'); }}
+        />
+      )}
 
  {confirmConfig && (
  <ConfirmDialog

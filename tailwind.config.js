@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
@@ -8,36 +9,40 @@ export default {
         mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       colors: {
-        // 近单色工具风：中性灰阶为主，彩色只用于业务语义（方向按钮 / 状态点）
+        // 全部走 CSS 变量：明暗主题与强调色由 index.css 的 :root / [data-theme] / [data-accent] 决定。
+        // 组件里的 bg-ink-* / text-ink-* / border-ink-* 无需改动即可跟随主题。
         ink: {
-          base: '#0B0B16',
-          surface: '#14141F',
-          elevated: '#1C1C2C',
-          raised: '#232338',
-          text: '#E7E9F0',
-          muted: '#8B8FA3',
-          faint: '#5A5E72',
-          border: '#262840',
-          borderSoft: 'rgba(255,255,255,0.06)',
-          // 主操作 = 亮底深字（Linear / Vercel 式），不再用彩色强调
-          solid: '#E7E9F0',
-          'solid-hover': '#FFFFFF',
-          // 业务语义色：只在方向按钮和状态点上出现
-          success: '#34D399',
-          warning: '#FBBF24',
-          danger: '#F43F5E',
-          'xbox-to-steam': '#10B981',
-          'steam-to-xbox': '#38BDF8',
+          base: 'var(--ink-base)',
+          surface: 'var(--ink-surface)',
+          elevated: 'var(--ink-elevated)',
+          raised: 'var(--ink-raised)',
+          text: 'var(--ink-text)',
+          muted: 'var(--ink-muted)',
+          faint: 'var(--ink-faint)',
+          border: 'var(--ink-border)',
+          borderSoft: 'var(--ink-border-soft)',
+          solid: 'var(--ink-solid)',
+          'solid-hover': 'var(--ink-solid-hover)',
+          accent: 'var(--ink-accent)',
+          'accent-soft': 'var(--ink-accent-soft)',
+          success: 'var(--ink-success)',
+          warning: 'var(--ink-warning)',
+          danger: 'var(--ink-danger)',
+          'xbox-to-steam': 'var(--ink-x2s)',
+          'steam-to-xbox': 'var(--ink-s2x)',
         },
       },
       borderRadius: {
-        card: '6px',
-        btn: '4px',
+        // 新拟态规范：容器 12px、控件 8px
+        card: '12px',
+        btn: '8px',
       },
       boxShadow: {
-        // 只保留一条极轻的描边替代阴影，层级靠边框和间距
-        card: '0 0 0 1px rgba(255,255,255,0.04)',
-        glass: '0 8px 32px rgba(0,0,0,0.45)',
+        // 由 CSS 变量驱动，随主题切换明暗
+        raise: 'var(--shadow-raise)',
+        inset: 'var(--shadow-inset)',
+        card: 'var(--shadow-raise)',
+        glass: 'var(--shadow-float)',
       },
     },
   },

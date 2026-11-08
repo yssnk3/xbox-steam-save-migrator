@@ -1,4 +1,4 @@
-import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult, FailureContext, AppSettings, AiExplanation } from '../types';
+import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult, FailureContext, AppSettings, AiExplanation, AppearanceSettings, EnvInfo, AiHistoryItem } from '../types';
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:'
   ? 'http://localhost:3001'
@@ -318,8 +318,10 @@ export async function fetchSettings(): Promise<{ settings: AppSettings }> {
 }
 
 export async function saveSettings(patch: {
-  ai?: Partial<{ enabled: boolean; baseUrl: string; model: string; timeoutMs: number; apiKey: string | null }>;
+  ai?: Partial<{ enabled: boolean; baseUrl: string; model: string; timeoutMs: number; autoAnalyze: boolean; apiKey: string | null }>;
   backup?: Partial<{ keepCount: number }>;
+  paths?: Partial<{ steamRoot: string; xboxPackagesRoot: string }>;
+  appearance?: Partial<AppearanceSettings>;
 }): Promise<{ settings: AppSettings }> {
   return apiFetch('/api/settings', {
     method: 'PUT',
@@ -341,10 +343,40 @@ export async function testAiConnectionApi(overrides: {
 
 // ===== AI 失败诊断 =====
 
-export async function explainFailureApi(context: FailureContext): Promise<AiExplanation> {
+export async function explainFailureApi(
+  context: FailureContext,
+  options: {
+    messages?: { role: 'user' | 'assistant'; content: string }[];
+    logs?: { type?: string; message: string }[];
+  } = {},
+): Promise<AiExplanation> {
   return apiFetch('/api/ai/explain-failure', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context }),
+    body: JSON.stringify({ context, messages: options.messages, logs: options.logs }),
   });
+}
+
+// ===== 环境自检 =====
+
+export async function fetchEnv(): Promise<{ env: EnvInfo }> {
+  return apiFetch('/api/env');
+}
+
+// ===== AI 诊断历史 =====
+
+export async function fetchAiHistory(): Promise<{ history: AiHistoryItem[] }> {
+  return apiFetch('/api/ai/history');
+}
+
+export async function fetchAiHistoryEntry(id: string): Promise<{ entry: { id: string; answer: string; question: string | null; createdAt: string; gameName: string | null; code: string | null; model: string | null } }> {
+  return apiFetch(`/api/ai/history/${encodeURIComponent(id)}`);
+}
+
+export async function deleteAiHistoryApi(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/api/ai/history/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function clearAiHistoryApi(): Promise<{ success: boolean }> {
+  return apiFetch('/api/ai/history', { method: 'DELETE' });
 }
