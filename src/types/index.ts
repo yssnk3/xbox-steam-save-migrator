@@ -20,6 +20,10 @@ export interface GameItem {
   xboxLastModified: string | null;
   xboxSaveSize: number;
   canSync: boolean;
+  /** true = 该游戏来自 Xbox 游戏库（已安装），但尚未检测到存档 */
+  isXboxInstalled?: boolean;
+  /** Xbox 激活 ID，用于从主列表直接启动 */
+  aumid?: string | null;
   /** Per-game steam filename normalization (backend-only extras, optional). */
   steamFileRenameMap?: Record<string, string>;
   steamStripVersionSuffix?: boolean;

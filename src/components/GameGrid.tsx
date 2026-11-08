@@ -37,12 +37,13 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
                           game.id.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
     if (filterMode === 'both') return game.isSteamDetected && game.isXboxDetected;
-    if (filterMode === 'detected') return game.isSteamDetected || game.isXboxDetected;
+    // 已安装但还没存档的 Xbox 游戏也算「本机有」——否则用户会以为没扫到
+    if (filterMode === 'detected') return game.isSteamDetected || game.isXboxDetected || Boolean(game.isXboxInstalled);
     return true;
   });
 
   const bothCount = games.filter(g => g.isSteamDetected && g.isXboxDetected).length;
-  const detectedCount = games.filter(g => g.isSteamDetected || g.isXboxDetected).length;
+  const detectedCount = games.filter(g => g.isSteamDetected || g.isXboxDetected || g.isXboxInstalled).length;
 
   const filterBtn = (mode: 'detected' | 'both' | 'all', label: string, count: number) => (
     <button
@@ -80,7 +81,7 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
         </div>
 
         <div className="flex items-center gap-0.5">
-          {filterBtn('detected', '有存档', detectedCount)}
+          {filterBtn('detected', '本机已有', detectedCount)}
           {filterBtn('both', '双端', bothCount)}
           {filterBtn('all', '全部', games.length)}
         </div>

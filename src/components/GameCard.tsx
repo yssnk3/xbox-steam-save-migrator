@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GameItem } from '../types';
-import { openFolder } from '../services/api';
-import { ArrowRight, ArrowLeft, Folder, Search, Gamepad2, FlaskConical } from 'lucide-react';
+import { openFolder, launchXboxGame } from '../services/api';
+import { ArrowRight, ArrowLeft, Folder, Search, Gamepad2, FlaskConical, Play, Loader2 } from 'lucide-react';
 
 interface GameCardProps {
   game: GameItem;
@@ -70,6 +70,7 @@ const SideColumn: React.FC<{
 
 export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuickMigrate, onTestGame, isMigrating, onError }) => {
   const [iconFailed, setIconFailed] = useState(false);
+  const [launching, setLaunching] = useState(false);
   useEffect(() => setIconFailed(false), [game.iconUrl]);
   const hasSaves = game.isSteamDetected || game.isXboxDetected;
 
@@ -78,6 +79,19 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
       await openFolder(folderPath);
     } catch (err: any) {
       onError(`无法打开${side === 'steam' ? 'Steam' : 'Xbox'}存档目录: ${err.message}`);
+    }
+  };
+
+  const handleLaunch = async () => {
+    if (!game.aumid) return;
+    setLaunching(true);
+    try {
+      await launchXboxGame(game.aumid);
+    } catch (err: any) {
+      onError(`启动失败：${err.message}`);
+    } finally {
+      // 启动是异步的，这里只负责把按钮状态复位
+      setTimeout(() => setLaunching(false), 1500);
     }
   };
 
@@ -151,8 +165,15 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] text-ink-text truncate" title={game.name}>
-              {game.name}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] text-ink-text truncate" title={game.name}>
+                {game.name}
+              </span>
+              {game.isXboxInstalled && (
+                <span className="text-[11px] text-ink-accent shrink-0" title="来自 Xbox 游戏库：已安装，尚未检测到存档">
+                  已安装
+                </span>
+              )}
             </div>
             <div className="t-mono truncate">
               {game.steamAppId ? `AppID ${game.steamAppId}` : game.id}
@@ -220,6 +241,17 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
             >
               <FlaskConical className="w-3 h-3" />
               预演
+            </button>
+          )}
+          {game.isXboxInstalled && game.aumid && (
+            <button
+              onClick={handleLaunch}
+              disabled={launching}
+              title="绕过 Xbox 客户端直接启动，用于先生成存档结构"
+              className="flex items-center gap-1 px-2 py-1 text-[12px] text-ink-muted hover:text-ink-text rounded-btn transition-colors disabled:opacity-50"
+            >
+              {launching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              启动
             </button>
           )}
         </div>

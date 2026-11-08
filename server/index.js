@@ -15,6 +15,7 @@ import { friendlyError } from './errorMessages.js';
 import { identifySavePath, resolveCounterpartPath, findGameById } from './gameIdentifier.js';
 import { enrichGames, steamIconFor } from './steamMetadata.js';
 import { scanXboxLibrary, launchXboxGame, checkXboxGameRunning, stopCloudSync } from './xboxLibrary.js';
+import { scanGamesWithXboxLibrary } from './gameLibrary.js';
 import { getPublicSettings, writeSettings, readSettings } from './settingsStore.js';
 import { getSteamEnvironment } from './steamLocator.js';
 import { explainFailure, testAiConnection, AiError } from './aiAssistant.js';
@@ -324,7 +325,8 @@ if (fs.existsSync(distPath)) {
 // API: Get Installed Games with Save Details
 app.get('/api/games', async (req, res) => {
   try {
-    const data = scanInstalledGames();
+    // 主扫描 + Xbox 游戏库已安装游戏（后者覆盖装了但还没启动过的情况）
+    const data = scanGamesWithXboxLibrary();
     // Network auto-search: fetch Chinese names for placeholder/English titles
     // and route Steam icons through the local proxy (CDN often blocked in CN).
     await enrichGames(data.games);
