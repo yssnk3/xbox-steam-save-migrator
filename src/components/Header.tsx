@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Gamepad2 className="w-4 h-4 text-ink-text stroke-[1.75]" />
           </div>
           <div className="flex items-baseline gap-2">
-            <h1 className="font-display font-semibold text-[14px] tracking-tight text-ink-text">
+            <h1 className="font-display font-semibold text-[13px] tracking-tight text-ink-text">
               Steam ↔ Xbox
             </h1>
             <span className="text-[11px] text-ink-faint hidden sm:inline">
@@ -50,9 +50,9 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`relative px-3 py-2 text-[12.5px] transition-colors flex items-center gap-1.5 shrink-0 border-b-2 ${
+                className={`relative px-3 py-2 text-[12px] transition-colors flex items-center gap-1.5 shrink-0 border-b-2 ${
                   isActive
-                    ? 'text-ink-text border-ink-accent font-medium'
+                    ? 'text-ink-text border-ink-text font-medium'
                     : 'text-ink-muted hover:text-ink-text border-transparent'
                 }`}
               >

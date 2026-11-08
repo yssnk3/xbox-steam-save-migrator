@@ -169,14 +169,9 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
     <div className="space-y-4">
 
       <div className="panel px-5 py-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="w-4 h-4 text-ink-muted shrink-0" />
-          <div>
-            <h2 className="text-[15px] font-semibold text-ink-text leading-tight">备份与版本还原</h2>
-            <p className="text-[12px] text-ink-muted mt-0.5">
-              每次移植前自动归档被覆盖的一方。有元数据的备份可一键还原到移植前状态
-            </p>
-          </div>
+        <div>
+          <h2 className="t-title">备份与版本还原</h2>
+          <p className="t-meta mt-0.5">每次移植前自动归档被覆盖的一方，可还原到移植前状态</p>
         </div>
         <button onClick={loadBackups} disabled={loading} className="btn-ghost px-2.5 py-1.5 text-[12px] flex items-center gap-1.5 shrink-0">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -213,30 +208,24 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-[11.5px] text-ink-text truncate max-w-[28ch]">
+                      <span className="font-mono text-[11px] text-ink-text truncate max-w-[28ch]">
                         {item.fileName}
                       </span>
-                      {item.platform && (
-                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-ink-elevated text-ink-muted border border-ink-border">
-                          {PLATFORM_LABEL[item.platform] || item.platform}
-                        </span>
-                      )}
-                      {item.direction && DIRECTION_LABEL[item.direction] && (
-                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-ink-elevated text-ink-muted border border-ink-border">
-                          {DIRECTION_LABEL[item.direction]}
-                        </span>
-                      )}
+                      <span className="t-meta">
+                        {[
+                          item.platform ? (PLATFORM_LABEL[item.platform] || item.platform) : null,
+                          item.direction ? DIRECTION_LABEL[item.direction] : null,
+                        ].filter(Boolean).join(' · ')}
+                      </span>
                       {item.canAutoRestore && (
-                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          可一键还原
-                        </span>
+                        <span className="text-[11px] text-emerald-400">可一键还原</span>
                       )}
                     </div>
                     <div className="text-[11px] text-ink-faint mt-1">
                       {new Date(item.createdAt).toLocaleString('zh-CN')} · {formatBytes(item.size)}
                     </div>
                     {item.restoreTargetPath && (
-                      <div className="font-mono text-[10.5px] text-ink-faint mt-0.5 truncate" title={item.restoreTargetPath}>
+                      <div className="font-mono text-[11px] text-ink-faint mt-0.5 truncate" title={item.restoreTargetPath}>
                         还原目标：{item.restoreTargetPath}
                       </div>
                     )}
@@ -246,7 +235,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
                     {item.canAutoRestore ? (
                       <button
                         onClick={() => handleAutoRestore(item)}
-                        className="btn-ghost px-2.5 py-1.5 text-[11.5px] flex items-center gap-1.5"
+                        className="btn-ghost px-2.5 py-1.5 text-[11px] flex items-center gap-1.5"
                         title="还原到备份时记录的目录（撤销那次移植）"
                       >
                         <CornerDownLeft className="w-3 h-3" />
@@ -255,7 +244,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
                     ) : (
                       <button
                         onClick={() => handleManualRestore(item)}
-                        className="btn-ghost px-2.5 py-1.5 text-[11.5px] flex items-center gap-1.5"
+                        className="btn-ghost px-2.5 py-1.5 text-[11px] flex items-center gap-1.5"
                         title="该备份无元数据，需手动选择目标目录"
                       >
                         <RotateCcw className="w-3 h-3" />

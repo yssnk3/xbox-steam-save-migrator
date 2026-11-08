@@ -202,42 +202,36 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  });
 
  return (
- <div className="bg-ink-surface border border-ink-border rounded-card p-6 shadow-card space-y-6">
- {/* 标题区 */}
- <div className="flex items-start gap-3">
- <div className="p-2.5 rounded-btn bg-blue-500/10 text-blue-400 border border-blue-500/20">
- <Library className="w-4 h-4" />
- </div>
- <div>
- <h2 className="font-semibold text-base text-ink-text">Xbox 游戏库</h2>
- <p className="text-xs text-ink-muted mt-0.5">
- 扫描已安装的 Game Pass 游戏，绕过 Xbox 客户端直接启动；迁移存档前后可在此切断/恢复云同步。
- </p>
- </div>
- </div>
+ <div className="panel p-6 space-y-6">
+      {/* 标题区 */}
+      <div>
+        <h2 className="t-title">Xbox 游戏库</h2>
+        <p className="t-meta mt-0.5">
+          扫描已安装的 Game Pass 游戏，可直接启动，并在此切断云同步
+        </p>
+      </div>
 
  {/* 云存档同步区 */}
- <div className="rounded-btn border border-ink-border p-4 space-y-3">
+ <div className="pt-4 border-t border-ink-borderSoft space-y-3">
  <div className="flex items-center justify-between gap-3">
  <div className="flex items-center gap-2">
  <CloudOff className="w-3.5 h-3.5 text-ink-muted" />
- <h3 className="text-sm font-medium text-ink-text">云存档同步控制</h3>
+ <h3 className="text-[13px] font-medium text-ink-text">云存档同步控制</h3>
  </div>
  <button
  onClick={handleStopCloudSync}
  disabled={stopping}
- className="px-3 py-1.5 text-xs font-medium bg-ink-accent hover:bg-ink-accent-hover text-white rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+ className="px-3 py-1.5 text-[12px] font-medium bg-ink-solid hover:bg-ink-solid-hover text-ink-base rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
  >
  {stopping ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CloudOff className="w-3 h-3" />}
  {stopping ? '执行中...' : '停止云同步'}
  </button>
  </div>
- <p className="text-xs text-ink-muted leading-relaxed">
- Xbox 云同步没有官方开关，同步只发生在游戏会话内。此操作关闭 Xbox 应用全家桶、击杀后台组件并尽力停止
- GamingServices 服务，确保移植存档时不会被云端旧档覆盖。迁移完成后正常启动游戏即可恢复同步。
- </p>
+        <p className="t-meta">
+          关闭 Xbox 应用与后台组件并尝试停止 GamingServices，防止移植后被云端旧档覆盖
+        </p>
  {stopResult && (
- <div className="text-[11px] font-mono text-ink-muted bg-ink-elevated border border-ink-borderSoft rounded-btn p-3 space-y-1">
+ <div className="text-[11px] font-mono text-ink-muted pl-3 border-l border-ink-border space-y-1">
  <div>· Xbox 应用：{stopResult.xboxAppClosed ? `已关闭（${stopResult.xboxAppStillRunning.length === 0 ? '无残留' : `仍有 ${stopResult.xboxAppStillRunning.join(', ')}`}` : '未在运行'}</div>
  <div>· XboxPcAppFT：{stopResult.ftKilled ? '已击杀（会被系统自动复活，属预期）' : '未在运行'}</div>
  <div>· GamingServices：{stopResult.servicesStopped.length > 0 ? `已停止 ${stopResult.servicesStopped.join(', ')}` : stopResult.servicesFailed.length > 0 ? `停止失败（需管理员权限）：${stopResult.servicesFailed.join(', ')}` : '无需处理'}</div>
@@ -255,7 +249,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  <button
  onClick={() => scan(true)}
  disabled={scanning}
- className="px-3 py-1.5 text-xs font-medium bg-ink-accent hover:bg-ink-accent-hover text-white rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+ className="px-3 py-1.5 text-[12px] font-medium bg-ink-solid hover:bg-ink-solid-hover text-ink-base rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
  >
  {scanning ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
  {scanning ? '扫描中...' : scanned ? '重新扫描' : '扫描已安装游戏'}
@@ -266,10 +260,10 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  value={query}
  onChange={e => setQuery(e.target.value)}
  placeholder="搜索游戏名或包名..."
- className="w-full pl-7 pr-2 py-1.5 text-xs border border-ink-border rounded-btn focus:outline-none focus:border-ink-faint bg-ink-surface"
+ className="w-full pl-7 pr-2 py-1.5 text-[12px] border border-ink-border rounded-btn focus:outline-none focus:border-ink-faint bg-ink-surface"
  />
  </div>
- <label className="flex items-center gap-1.5 text-xs text-ink-muted cursor-pointer select-none">
+ <label className="flex items-center gap-1.5 text-[12px] text-ink-muted cursor-pointer select-none">
  <input
  type="checkbox"
  checked={showAll}
@@ -281,10 +275,10 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  </div>
 
  {!scanned && !scanning && (
- <p className="text-xs text-ink-faint py-6 text-center">点击上方按钮扫描本机已安装的 Game Pass 游戏</p>
+ <p className="text-[12px] text-ink-faint py-6 text-center">点击上方按钮扫描本机已安装的 Game Pass 游戏</p>
  )}
  {scanned && filtered.length === 0 && !scanning && (
- <p className="text-xs text-ink-faint py-6 text-center">没有匹配的结果</p>
+ <p className="text-[12px] text-ink-faint py-6 text-center">没有匹配的结果</p>
  )}
 
  <div className="divide-y divide-ink-border">
@@ -303,24 +297,24 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  </div>
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
- <span className="text-sm font-medium text-ink-text truncate">{game.displayName}</span>
+ <span className="text-[13px] font-medium text-ink-text truncate">{game.displayName}</span>
  {game.hasWgs && (
- <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">有存档</span>
+ <span className="px-1.5 py-0.5 text-[11px] font-medium rounded text-emerald-400 shrink-0">有存档</span>
  )}
  {running[game.pfn] && (
- <span className="flex items-center gap-1 text-[10px] text-emerald-400 shrink-0">
- <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/100" />
+ <span className="flex items-center gap-1 text-[11px] text-emerald-400 shrink-0">
+ <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
  运行中
  </span>
  )}
  {isUploading && (
- <span className="flex items-center gap-1 text-[10px] text-blue-400 shrink-0">
+ <span className="flex items-center gap-1 text-[11px] text-blue-400 shrink-0">
  <Loader2 className="w-2.5 h-2.5 animate-spin" />
  {upload === 'starting' ? '启动中...' : '同步监控中——退出游戏后自动确认'}
  </span>
  )}
  </div>
- <div className="text-[10px] font-mono text-ink-faint truncate">{game.pfn}</div>
+ <div className="text-[11px] font-mono text-ink-faint truncate">{game.pfn}</div>
  </div>
  <div className="flex items-center gap-1.5 shrink-0">
  <button
@@ -336,7 +330,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  onClick={() => handleLaunch(game)}
  disabled={launching === game.pfn || isUploading}
  title="绕过 Xbox 客户端直接启动"
- className="px-2.5 py-1.5 text-[11px] font-medium bg-ink-accent hover:bg-ink-accent-hover text-white rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
+ className="px-2.5 py-1.5 text-[11px] font-medium bg-ink-solid hover:bg-ink-solid-hover text-ink-base rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
  >
  {launching === game.pfn
  ? <RefreshCw className="w-3 h-3 animate-spin" />

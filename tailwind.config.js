@@ -5,41 +5,38 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Microsoft YaHei"', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', '"Segoe UI"', '"Microsoft YaHei"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
       },
       colors: {
-        // 深色现代风语义 token —— 三层背景 / 三级文本 / 两级描边
+        // 近单色工具风：中性灰阶为主，彩色只用于业务语义（方向按钮 / 状态点）
         ink: {
-          base: '#0B0B16',        // 页面底
-          surface: '#14141F',     // 卡片 / 面板
-          elevated: '#1C1C2C',    // 悬浮层 / 输入框 / hover
-          raised: '#232338',      // 二级 hover / 分段控件选中
+          base: '#0B0B16',
+          surface: '#14141F',
+          elevated: '#1C1C2C',
+          raised: '#232338',
           text: '#E7E9F0',
           muted: '#8B8FA3',
           faint: '#5A5E72',
           border: '#262840',
           borderSoft: 'rgba(255,255,255,0.06)',
-          accent: '#7C3AED',
-          'accent-hover': '#8B5CF6',
-          'accent-down': '#6D28D9',
-          'accent-soft': 'rgba(124,58,237,0.12)',
+          // 主操作 = 亮底深字（Linear / Vercel 式），不再用彩色强调
+          solid: '#E7E9F0',
+          'solid-hover': '#FFFFFF',
+          // 业务语义色：只在方向按钮和状态点上出现
           success: '#34D399',
           warning: '#FBBF24',
           danger: '#F43F5E',
-          'xbox-to-steam': '#10B981',   // 方向按钮语义色（全 UI 唯一彩色按钮）
+          'xbox-to-steam': '#10B981',
           'steam-to-xbox': '#38BDF8',
         },
       },
       borderRadius: {
-        card: '8px',
-        btn: '6px',
+        card: '6px',
+        btn: '4px',
       },
       boxShadow: {
-        card: '0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)',
-        'card-hover': '0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
-        glow: '0 0 0 1px rgba(255,255,255,0.10)',
-        'glow-soft': '0 1px 2px rgba(0,0,0,0.4)',
+        // 只保留一条极轻的描边替代阴影，层级靠边框和间距
+        card: '0 0 0 1px rgba(255,255,255,0.04)',
         glass: '0 8px 32px rgba(0,0,0,0.45)',
       },
     },

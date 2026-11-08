@@ -52,7 +52,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
  style={{ animation: 'toast-slide-in 0.25s ease-out' }}
  >
  <div className="shrink-0 mt-0.5">{s.icon}</div>
- <span className={`text-sm ${s.text} flex-1 break-words leading-relaxed font-medium`}>{t.message}</span>
+ <span className={`text-[13px] ${s.text} flex-1 break-words leading-relaxed font-medium`}>{t.message}</span>
  <button
  onClick={() => dismiss(t.id)}
  className="shrink-0 text-ink-faint hover:text-ink-text transition-colors"

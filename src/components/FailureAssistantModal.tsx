@@ -39,7 +39,7 @@ function parseSections(text: string): { label: string; body: string[] }[] {
 const SECTION_ACCENT: Record<string, string> = {
   原因: 'text-ink-warning',
   可能方案: 'text-ink-text',
-  下一步操作: 'text-ink-accent-hover',
+  下一步操作: 'text-ink-text',
 };
 
 const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
@@ -177,33 +177,33 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
               <div className="text-center py-6">
                 {aiState === 'unconfigured' ? (
                   <>
-                    <p className="text-[12.5px] text-ink-muted mb-3">
+                    <p className="text-[12px] text-ink-muted mb-3">
                       尚未填写 API Key，无法分析失败原因
                     </p>
-                    <button onClick={onGotoSettings} className="btn-primary px-3.5 py-2 text-[12.5px] inline-flex items-center gap-2">
+                    <button onClick={onGotoSettings} className="btn-primary px-3.5 py-2 text-[12px] inline-flex items-center gap-2">
                       <SettingsIcon className="w-3.5 h-3.5" />
                       去设置中配置
                     </button>
                   </>
                 ) : aiState === 'disabled' ? (
                   <>
-                    <p className="text-[12.5px] text-ink-muted mb-3">
+                    <p className="text-[12px] text-ink-muted mb-3">
                       API Key 已保存，但 AI 助手处于「未启用」状态
                     </p>
-                    <button onClick={onGotoSettings} className="btn-primary px-3.5 py-2 text-[12.5px] inline-flex items-center gap-2">
+                    <button onClick={onGotoSettings} className="btn-primary px-3.5 py-2 text-[12px] inline-flex items-center gap-2">
                       <SettingsIcon className="w-3.5 h-3.5" />
                       去设置中启用
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="text-[12.5px] text-ink-muted mb-3">
+                    <p className="text-[12px] text-ink-muted mb-3">
                       可以让 AI 结合当前现场信息分析原因并给出解决方案
                     </p>
                     <button
                       onClick={runExplain}
                       disabled={aiState !== 'ready'}
-                      className="btn-primary px-3.5 py-2 text-[12.5px] inline-flex items-center gap-2"
+                      className="btn-primary px-3.5 py-2 text-[12px] inline-flex items-center gap-2"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       AI 分析失败原因
@@ -214,7 +214,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
             )}
 
             {explaining && (
-              <div className="flex items-center justify-center gap-2 py-10 text-[12.5px] text-ink-muted">
+              <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-ink-muted">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 正在分析…
               </div>
@@ -222,7 +222,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
 
             {error && !explaining && (
               <div className="text-center py-6 space-y-3">
-                <p className="text-[12.5px] text-ink-danger break-words">{error}</p>
+                <p className="text-[12px] text-ink-danger break-words">{error}</p>
                 <button onClick={runExplain} className="btn-ghost px-3 py-1.5 text-[12px] inline-flex items-center gap-1.5">
                   <RefreshCw className="w-3 h-3" />
                   重试
@@ -238,11 +238,11 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                       {sec.label}
                     </h4>
                     {sec.body.length === 1 ? (
-                      <p className="text-[12.5px] text-ink-text leading-relaxed">{sec.body[0]}</p>
+                      <p className="text-[12px] text-ink-text leading-relaxed">{sec.body[0]}</p>
                     ) : (
                       <ul className="space-y-1">
                         {sec.body.map((b, j) => (
-                          <li key={j} className="text-[12.5px] text-ink-text leading-relaxed flex gap-2">
+                          <li key={j} className="text-[12px] text-ink-text leading-relaxed flex gap-2">
                             <ChevronRight className="w-3 h-3 text-ink-faint mt-1 shrink-0" />
                             <span>{b}</span>
                           </li>
@@ -252,8 +252,8 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                   </div>
                 ))}
                 <div className="flex items-center justify-between pt-2 border-t border-ink-borderSoft">
-                  <span className="font-mono text-[10.5px] text-ink-faint">模型：{result.model}</span>
-                  <button onClick={runExplain} className="text-[11.5px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">
+                  <span className="font-mono text-[11px] text-ink-faint">模型：{result.model}</span>
+                  <button onClick={runExplain} className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">
                     <RefreshCw className="w-3 h-3" />
                     重新分析
                   </button>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, Bot, Database, Info, Loader2, CheckCircle2, XCircle, Save } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Save } from 'lucide-react';
 import { AppSettings } from '../types';
 import { fetchSettings, saveSettings, testAiConnectionApi } from '../services/api';
 import { useToast } from './Toast';
@@ -124,14 +124,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
     <div className="space-y-4">
       {/* AI 助手 */}
       <section className="panel p-5">
-        <header className="flex items-start gap-3 pb-4 border-b border-ink-borderSoft">
-          <Bot className="w-4 h-4 text-ink-muted mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <h2 className="text-[15px] font-semibold text-ink-text leading-tight">AI 失败诊断</h2>
-            <p className="text-[12px] text-ink-muted mt-1 leading-relaxed">
-              移植失败后可让 AI 分析原因并给出解决方案。走 OpenAI 兼容接口，可填任意兼容服务
-              （OpenAI、DeepSeek、智谱、本地 Ollama 等）。密钥只保存在本机。
-            </p>
+        <header className="flex items-center justify-between gap-3 pb-3 border-b border-ink-borderSoft">
+          <div>
+            <h2 className="t-title">AI 失败诊断</h2>
+            <p className="t-meta mt-0.5">OpenAI 兼容接口，密钥只保存在本机</p>
           </div>
           <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none">
             <span className="text-[12px] text-ink-muted">{enabled ? '已启用' : '未启用'}</span>
@@ -139,7 +135,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
               type="checkbox"
               checked={enabled}
               onChange={e => setEnabled(e.target.checked)}
-              className="w-3.5 h-3.5 accent-ink-accent"
+              className="w-3.5 h-3.5 accent-ink-muted"
             />
           </label>
         </header>
@@ -197,7 +193,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
                   type="checkbox"
                   checked={clearKey}
                   onChange={e => { setClearKey(e.target.checked); if (e.target.checked) setApiKey(''); }}
-                  className="w-3 h-3 accent-ink-accent"
+                  className="w-3 h-3 accent-ink-muted"
                 />
                 清除已保存的密钥
               </label>
@@ -222,14 +218,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
 
       {/* 备份 */}
       <section className="panel p-5">
-        <header className="flex items-start gap-3 pb-4 border-b border-ink-borderSoft">
-          <Database className="w-4 h-4 text-ink-muted mt-0.5 shrink-0" />
-          <div>
-            <h2 className="text-[15px] font-semibold text-ink-text leading-tight">备份策略</h2>
-            <p className="text-[12px] text-ink-muted mt-1 leading-relaxed">
-              每次移植前自动备份被覆盖的一方。备份会记录原目标路径，可在「备份中心」一键还原到原位置。
-            </p>
-          </div>
+        <header className="pb-3 border-b border-ink-borderSoft">
+          <h2 className="t-title">备份策略</h2>
+          <p className="t-meta mt-0.5">自动备份被覆盖的一方，可在备份中心还原到原位置</p>
         </header>
         <div className="pt-4 max-w-xs">
           <label className={LABEL_CLASS}>最多保留备份数量</label>
@@ -247,12 +238,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog }) => {
 
       {/* 关于 */}
       <section className="panel p-5">
-        <header className="flex items-start gap-3 pb-4 border-b border-ink-borderSoft">
-          <Info className="w-4 h-4 text-ink-muted mt-0.5 shrink-0" />
-          <div>
-            <h2 className="text-[15px] font-semibold text-ink-text leading-tight">关于</h2>
-            <p className="text-[12px] text-ink-muted mt-1">Steam ↔ Xbox 存档移植工具</p>
-          </div>
+        <header className="pb-3 border-b border-ink-borderSoft">
+          <h2 className="t-title">关于</h2>
+          <p className="t-meta mt-0.5">Steam ↔ Xbox 存档移植工具</p>
         </header>
         <dl className="pt-4 grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-x-4 gap-y-2 text-[12px]">
           <dt className="text-ink-muted">配置文件</dt>

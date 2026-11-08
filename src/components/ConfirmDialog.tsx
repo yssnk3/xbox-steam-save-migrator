@@ -39,14 +39,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
  }, [onCancel]);
 
  const variantStyles = {
- default: 'bg-ink-accent hover:bg-ink-accent-hover text-white',
- danger: 'bg-red-500 hover:bg-red-600 text-white',
- warning: 'bg-amber-500/100/100 hover:bg-amber-600 text-white',
+ default: 'bg-ink-solid hover:bg-ink-solid-hover text-ink-base',
+ danger: 'bg-red-500 hover:bg-red-600 text-ink-text',
+ warning: 'bg-amber-500 hover:bg-amber-400 text-ink-base',
  };
 
  return (
  <div
- className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/60 "
+ className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-ink-base "
  onClick={onCancel}
  role="dialog"
  aria-modal="true"
@@ -63,7 +63,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
  {variant !== 'default' && (
  <AlertTriangle className={`w-5 h-5 ${variant === 'danger' ? 'text-red-400' : 'text-orange-500'}`} />
  )}
- <h2 className="font-semibold text-base text-ink-text">{title}</h2>
+ <h2 className="font-semibold text-[15px] text-ink-text">{title}</h2>
  </div>
  <button onClick={onCancel} className="p-1.5 rounded-btn text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors">
  <X className="w-4 h-4" />
@@ -72,7 +72,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
  {/* Body */}
  <div className="p-6 space-y-4">
- <p className="text-sm text-ink-muted leading-relaxed whitespace-pre-line">{message}</p>
+ <p className="text-[13px] text-ink-muted leading-relaxed whitespace-pre-line">{message}</p>
  {extraContent}
  </div>
 
@@ -80,14 +80,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
  <div className="px-6 py-4 border-t border-ink-borderSoft flex items-center justify-end gap-3">
  <button
  onClick={onCancel}
- className="px-4 py-2 text-sm font-medium text-ink-muted hover:text-ink-text transition-colors"
+ className="px-4 py-2 text-[13px] font-medium text-ink-muted hover:text-ink-text transition-colors"
  >
  {cancelLabel}
  </button>
  <button
  ref={confirmRef}
  onClick={onConfirm}
- className={`px-6 py-2.5 text-sm font-semibold rounded-btn transition-colors ${variantStyles[variant]}`}
+ className={`px-6 py-2.5 text-[13px] font-semibold rounded-btn transition-colors ${variantStyles[variant]}`}
  >
  {confirmLabel}
  </button>
