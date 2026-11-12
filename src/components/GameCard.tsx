@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameItem } from '../types';
 import { openFolder, launchXboxGame } from '../services/api';
 import { ArrowRight, ArrowLeft, Folder, Search, Gamepad2, FlaskConical, Play, Loader2 } from 'lucide-react';
@@ -9,6 +9,8 @@ interface GameCardProps {
   onQuickMigrate: (game: GameItem, direction: 'xbox_to_steam' | 'steam_to_xbox') => void;
   onTestGame?: (game: GameItem) => void;
   isMigrating: boolean;
+  /** 搜索跳转后短暂高亮该行 */
+  highlighted?: boolean;
   onError: (msg: string) => void;
 }
 
@@ -68,9 +70,16 @@ const SideColumn: React.FC<{
   </div>
 );
 
-export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuickMigrate, onTestGame, isMigrating, onError }) => {
+export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuickMigrate, onTestGame, isMigrating, highlighted = false, onError }) => {
   const [iconFailed, setIconFailed] = useState(false);
   const [launching, setLaunching] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // 搜索跳转过来时把该行滚进视野
+  useEffect(() => {
+    if (!highlighted) return;
+    rowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlighted]);
   useEffect(() => setIconFailed(false), [game.iconUrl]);
   const hasSaves = game.isSteamDetected || game.isXboxDetected;
 
@@ -147,7 +156,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
   };
 
   return (
-    <div className={`px-4 py-3 transition-colors hover:bg-ink-hover ${hasSaves ? '' : 'opacity-60'}`}>
+    <div
+      ref={rowRef}
+      className={`px-4 py-3 transition-colors ${
+        highlighted ? 'bg-ink-accent-soft' : 'hover:bg-ink-hover'
+      } ${hasSaves ? '' : 'opacity-60'}`}
+    >
       <div className="flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-4">
 
         {/* 身份列 */}
@@ -223,13 +237,14 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
               {directionBtn('steam_to_xbox')}
             </>
           )}
+          {/* 次要操作：常驻可见的次按钮，不再靠 hover 才显形 */}
           <button
             onClick={() => onInspectGame(game)}
             disabled={isMigrating}
             title={isMigrating ? '正在执行其他移植...' : '文件预览与 MD5 校验对比'}
-            className="flex items-center gap-1 px-2 py-1 text-[12px] text-ink-muted hover:text-ink-text rounded-btn transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] btn-ghost disabled:opacity-50"
           >
-            <Search className="w-3 h-3" />
+            <Search className="w-3.5 h-3.5" />
             对比
           </button>
           {onTestGame && (
@@ -237,20 +252,29 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
               onClick={() => onTestGame(game)}
               disabled={isMigrating}
               title={isMigrating ? '正在执行其他移植...' : '移植预演：不写文件，预测字节会落到哪些槽位'}
-              className="flex items-center gap-1 px-2 py-1 text-[12px] text-ink-muted hover:text-ink-text rounded-btn transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] btn-ghost disabled:opacity-50"
             >
-              <FlaskConical className="w-3 h-3" />
+              <FlaskConical className="w-3.5 h-3.5" />
               预演
             </button>
           )}
+          <button
+            onClick={() => handleOpenFolder(hasSaves ? (game.isXboxDetected ? game.xboxWgsPath : game.steamSavePath) : '', hasSaves ? (game.isXboxDetected ? 'xbox' : 'steam') : 'steam')}
+            disabled={!hasSaves}
+            title={hasSaves ? '在资源管理器中打开该游戏的存档目录' : '尚未检测到存档目录'}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] btn-ghost disabled:opacity-40"
+          >
+            <Folder className="w-3.5 h-3.5" />
+            目录
+          </button>
           {game.isXboxInstalled && game.aumid && (
             <button
               onClick={handleLaunch}
               disabled={launching}
               title="绕过 Xbox 客户端直接启动，用于先生成存档结构"
-              className="flex items-center gap-1 px-2 py-1 text-[12px] text-ink-muted hover:text-ink-text rounded-btn transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] btn-ghost disabled:opacity-50"
             >
-              {launching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              {launching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               启动
             </button>
           )}

@@ -6,7 +6,15 @@ import { useToast } from './Toast';
 import { ConfirmDialog, ConfirmDialogConfig } from './ConfirmDialog';
 
 interface XboxLibraryPanelProps {
- onAddLog: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  onAddLog: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  /** 扫描结果提到 App 层保存：切页不丢、进入程序自动加载 */
+  games: XboxInstalledGame[];
+  scanning: boolean;
+  hasScanned: boolean;
+  /** 强制刷新（忽略缓存） */
+  onForceRefresh: () => void;
+  /** 搜索跳转后要定位高亮的包名 */
+  highlightKey?: string | null;
 }
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:'
@@ -18,14 +26,18 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 /** 上传云存档的行内状态机。 */
 type UploadState = 'idle' | 'starting' | 'monitoring' | 'waiting-manual';
 
-const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
- const toast = useToast();
+const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
+  onAddLog,
+  games,
+  scanning,
+  hasScanned,
+  onForceRefresh,
+  highlightKey,
+}) => {
+  const toast = useToast();
 
- const [games, setGames] = useState<XboxInstalledGame[]>([]);
- const [scanning, setScanning] = useState(false);
- const [scanned, setScanned] = useState(false);
- const [query, setQuery] = useState('');
- const [showAll, setShowAll] = useState(false);
+  const [query, setQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
  const [running, setRunning] = useState<Record<string, boolean>>({});
  const [launching, setLaunching] = useState<string | null>(null);
@@ -39,25 +51,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  const mountedRef = useRef(true);
  useEffect(() => () => { mountedRef.current = false; }, []);
 
- const scan = useCallback(async (refresh: boolean) => {
- setScanning(true);
- try {
- const data = await fetchXboxLibrary(refresh);
- setGames(data.games);
- setScanned(true);
- const gameCount = data.games.filter(g => g.isGame).length;
- toast(`扫描完成：${gameCount} 款游戏 / 共 ${data.games.length} 个应用`, 'success');
- onAddLog(`Xbox 游戏库扫描完成：${gameCount} 款游戏（共 ${data.games.length} 个打包应用）`, 'success');
- } catch (err) {
- const msg = err instanceof Error ? err.message : String(err);
- toast(`扫描失败：${msg}`, 'error');
- onAddLog(`Xbox 游戏库扫描失败：${msg}`, 'error');
- } finally {
- setScanning(false);
- }
- }, [toast, onAddLog]);
-
- const pollUntilRunning = useCallback(async (game: XboxInstalledGame, attempts = 15): Promise<
+  const pollUntilRunning = useCallback(async (game: XboxInstalledGame, attempts = 15): Promise<
  'running' | 'stalled' | 'timeout'> => {
  let helperOnlyStreak = 0;
  for (let i = 0; i < attempts; i++) {
@@ -238,14 +232,15 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  {/* 游戏库区 */}
  <div className="space-y-3">
  <div className="flex flex-wrap items-center gap-2">
- <button
- onClick={() => scan(true)}
- disabled={scanning}
- className="px-3 py-1.5 text-[13px] btn-primary disabled:opacity-40 flex items-center gap-1.5"
- >
- {scanning ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
- {scanning ? '扫描中...' : scanned ? '重新扫描' : '扫描已安装游戏'}
- </button>
+        <button
+          onClick={onForceRefresh}
+          disabled={scanning}
+          className="px-3 py-1.5 text-[13px] btn-ghost disabled:opacity-40 flex items-center gap-1.5"
+          title="忽略缓存，重新枚举本机已安装的打包应用"
+        >
+          <RefreshCw className={`w-3 h-3 ${scanning ? 'animate-spin' : ''}`} />
+          {scanning ? '刷新中…' : '强制刷新'}
+        </button>
  <div className="relative flex-1 min-w-[160px]">
  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-ink-faint" />
  <input
@@ -266,19 +261,26 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  </label>
  </div>
 
- {!scanned && !scanning && (
- <p className="t-meta py-8 text-center">点击上方按钮扫描本机已安装的 Game Pass 游戏</p>
- )}
- {scanned && filtered.length === 0 && !scanning && (
- <p className="t-meta py-8 text-center">没有匹配的结果</p>
- )}
+      {!hasScanned && !scanning && (
+        <p className="t-meta py-8 text-center">点左下角「扫描」加载本机已安装的 Game Pass 游戏</p>
+      )}
+      {hasScanned && filtered.length === 0 && !scanning && (
+        <p className="t-meta py-8 text-center">没有匹配的结果</p>
+      )}
 
- <div className="panel divide-y divide-ink-borderSoft overflow-hidden">
- {filtered.map(game => {
- const upload = uploadStates[game.pfn] || 'idle';
- const isUploading = upload === 'starting' || upload === 'monitoring';
- return (
- <div key={game.pfn} className="flex items-center gap-3 px-4 py-2.5 hover:bg-ink-hover transition-colors">
+        <div className="panel divide-y divide-ink-borderSoft overflow-hidden">
+          {filtered.map(game => {
+            const upload = uploadStates[game.pfn] || 'idle';
+            const isUploading = upload === 'starting' || upload === 'monitoring';
+            const isHighlighted = highlightKey === game.pfn;
+            return (
+              <div
+                key={game.pfn}
+                data-pfn={game.pfn}
+                className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                  isHighlighted ? 'bg-ink-accent-soft' : 'hover:bg-ink-hover'
+                }`}
+              >
  <div className="w-7 h-7 rounded-[4px] border border-ink-borderSoft bg-ink-elevated flex items-center justify-center overflow-hidden shrink-0">
  <img
  src={`${API_BASE}/api/xbox-icon/${encodeURIComponent(game.pfn)}`}

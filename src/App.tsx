@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { GameItem, LogEntry, FailureContext, EnvInfo } from './types';
-import { fetchGames, fetchBackups, migrateSave, inspectSave, pickFolder } from './services/api';
+import { GameItem, LogEntry, FailureContext, EnvInfo, XboxInstalledGame } from './types';
+import { fetchGames, fetchBackups, fetchXboxLibrary, migrateSave, inspectSave, pickFolder } from './services/api';
 import { migrationOutcome, outcomeText } from './utils/migrationOutcome';
 import { buildFailureContext } from './utils/failureContext';
 import FailureAssistantModal from './components/FailureAssistantModal';
 import { Sidebar, TabKey } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { SearchPalette, SearchResult } from './components/SearchPalette';
 import { EnvBanner } from './components/EnvBanner';
 import { fetchEnv, saveSettings, fetchSettings } from './services/api';
 import { applyCachedTheme, applyTheme, cacheTheme, watchSystemTheme, ThemeMode, AccentColor, DEFAULT_APPEARANCE } from './theme';
@@ -22,7 +23,7 @@ import { CustomGameModal } from './components/CustomGameModal';
 import { ConfirmDialog, ConfirmDialogConfig } from './components/ConfirmDialog';
 import { WelcomeScreen, isWelcomeDismissed, dismissWelcome } from './components/WelcomeScreen';
 import { useToast } from './components/Toast';
-import { Plus, Wrench, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { Plus, Wrench, ChevronDown, ChevronUp, Terminal, RefreshCw } from 'lucide-react';
 
 
 /** 每个 tab 在正文顶部的大标题与说明（Notion 页面标题形态） */
@@ -51,7 +52,12 @@ export const App: React.FC = () => {
   const [failureContext, setFailureContext] = useState<FailureContext | null>(null);
   const [failureHeadline, setFailureHeadline] = useState('');
   const [env, setEnv] = useState<EnvInfo | null>(null);
- const [backupCount, setBackupCount] = useState(0);
+  const [backupCount, setBackupCount] = useState(0);
+  const [libraryGames, setLibraryGames] = useState<XboxInstalledGame[]>([]);
+  const [libraryScanning, setLibraryScanning] = useState(false);
+  const [libraryScanned, setLibraryScanned] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTarget, setSearchTarget] = useState<{ tab: TabKey; key: string } | null>(null);
   const [envDismissed, setEnvDismissed] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
   const [accent, setAccent] = useState<AccentColor>('neutral');
@@ -140,21 +146,44 @@ export const App: React.FC = () => {
  setConfirmResolve(null);
  };
 
- const loadGames = async () => {
- setLoadingGames(true);
- addLog('正在扫描全盘已安装的 Steam 与 Xbox PC Game Pass 存档路径...', 'info');
- try {
- const data = await fetchGames();
- setGames(data.games);
- const bothCount = data.games.filter(g => g.isSteamDetected && g.isXboxDetected).length;
- addLog(`检索完成！已找到 ${data.games.length} 款游戏，其中 ${bothCount} 款存在双端存档。`, 'success');
- } catch (err: any) {
- addLog(`扫描失败: ${err.message}`, 'error');
- toast(`扫描失败: ${err.message}`, 'error');
- } finally {
- setLoadingGames(false);
- }
- };
+  const loadGames = async () => {
+    setLoadingGames(true);
+    addLog('正在扫描全盘已安装的 Steam 与 Xbox PC Game Pass 存档路径...', 'info');
+    try {
+      const data = await fetchGames();
+      setGames(data.games);
+      const bothCount = data.games.filter(g => g.isSteamDetected && g.isXboxDetected).length;
+      addLog(`检索完成！已找到 ${data.games.length} 款游戏，其中 ${bothCount} 款存在双端存档。`, 'success');
+    } catch (err: any) {
+      addLog(`扫描失败: ${err.message}`, 'error');
+      toast(`扫描失败: ${err.message}`, 'error');
+    } finally {
+      setLoadingGames(false);
+    }
+  };
+
+  /** 加载 Xbox 游戏库（默认走缓存，进入程序即渲染）。force=true 时忽略缓存重扫。 */
+  const loadLibrary = useCallback(async (force = false) => {
+    setLibraryScanning(true);
+    try {
+      const data = await fetchXboxLibrary(force);
+      setLibraryGames(data.games);
+      setLibraryScanned(true);
+      if (force) {
+        const gameCount = data.games.filter(g => g.isGame).length;
+        addLog(`Xbox 游戏库已刷新：${gameCount} 款游戏 / 共 ${data.games.length} 个应用`, 'success');
+      }
+    } catch (err: any) {
+      addLog(`Xbox 游戏库读取失败：${err.message}`, 'error');
+    } finally {
+      setLibraryScanning(false);
+    }
+  }, [addLog]);
+
+  /** 左下的全局扫描：一次同时刷新存档与游戏库。 */
+  const performGlobalScan = useCallback(async () => {
+    await Promise.all([loadGames(), loadLibrary(true)]);
+  }, [loadLibrary]);
 
   const loadEnv = useCallback(async () => {
     try {
@@ -208,7 +237,34 @@ export const App: React.FC = () => {
     loadGames();
     loadEnv();
     loadBackupCount();
+    // 游戏库走磁盘缓存，进入程序立即有内容（不触发 PowerShell 枚举）
+    loadLibrary(false);
   }, []);
+
+  // Ctrl+K 打开搜索
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(v => !v);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // 搜索跳转：切页 + 记录定位目标，页面消费后 2s 清空
+  const handleSearchJump = useCallback((result: SearchResult) => {
+    setSearchOpen(false);
+    setActiveTab(result.tab);
+    setSearchTarget({ tab: result.tab, key: result.targetKey });
+  }, []);
+
+  useEffect(() => {
+    if (!searchTarget) return;
+    const t = setTimeout(() => setSearchTarget(null), 4000);
+    return () => clearTimeout(t);
+  }, [searchTarget]);
 
  // Shared migration confirm — unified across all three migration entry points.
  const confirmMigrate = useCallback(async (info: {
@@ -382,13 +438,13 @@ export const App: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onRefresh={loadGames}
-        isRefreshing={loadingGames}
+        onScan={performGlobalScan}
+        isScanning={loadingGames || libraryScanning}
         detectedBothCount={detectedBothCount}
         gameCount={games.length}
-        libraryCount={games.filter(g => g.isXboxDetected || g.isXboxInstalled).length}
+        libraryCount={libraryGames.filter(g => g.isGame).length}
         backupCount={backupCount}
-        onAddCustomGame={() => setShowCustomGameModal(true)}
+        onOpenSearch={() => setSearchOpen(true)}
         themeMode={themeMode}
         onCycleTheme={() => {
           const next: ThemeMode = themeMode === 'system' ? 'light' : themeMode === 'light' ? 'dark' : 'system';
@@ -447,8 +503,40 @@ export const App: React.FC = () => {
 
  {activeTab === 'games' ? (
  <>
- {/* Primary entry: pick a save folder → identify → one-click migrate */}
- <IdentifyMigratePanel
+        {/* 页面级快捷入口：常驻在正文顶部，不再藏在页尾 */}
+        {activeTab === 'games' && (
+          <div className="flex flex-wrap items-center gap-2 mb-5">
+            <button
+              onClick={() => setShowCustomGameModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-[13px] btn-ghost"
+              title="注册数据库里没有的游戏"
+            >
+              <Plus className="w-4 h-4" />
+              添加自定义游戏
+            </button>
+            <button
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+              className="flex items-center gap-1.5 px-3 py-2 text-[13px] btn-ghost"
+              title="手动指定 WGS 目录进行解包/打包"
+            >
+              <Wrench className="w-4 h-4" />
+              高级 WGS 工具
+              {advancedOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={performGlobalScan}
+              disabled={loadingGames || libraryScanning}
+              className="flex items-center gap-1.5 px-3 py-2 text-[13px] btn-primary disabled:opacity-50"
+              title="重新扫描本机存档与 Xbox 游戏库"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingGames || libraryScanning ? 'animate-spin' : ''}`} />
+              {loadingGames || libraryScanning ? '扫描中…' : '重新扫描'}
+            </button>
+          </div>
+        )}
+
+        {/* Primary entry: pick a save folder → identify → one-click migrate */}
+        <IdentifyMigratePanel
  onAddLog={addLog}
  onMigrated={loadGames}
  isMigrating={isMigrating}
@@ -469,47 +557,34 @@ export const App: React.FC = () => {
 
  {/* Discovered saves on this PC */}
  <div className="mt-6">
- <GameGrid
- games={games}
- onSelectGame={setSelectedGame}
- onQuickMigrate={handleQuickMigrate}
- onTestGame={setTestGame}
- isMigrating={isMigrating}
- />
+          <GameGrid
+            games={games}
+            onSelectGame={setSelectedGame}
+            onQuickMigrate={handleQuickMigrate}
+            onTestGame={setTestGame}
+            isMigrating={isMigrating}
+            highlightKey={searchTarget?.tab === 'games' ? searchTarget.key : null}
+          />
  </div>
 
- {/* Add-custom-game + advanced WGS tools */}
- <div className="flex flex-col gap-3 mt-6">
- <div className="flex items-center justify-between gap-3 flex-wrap">
- <button
- onClick={() => setShowCustomGameModal(true)}
- className="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold rounded-card bg-ink-elevated hover:bg-ink-hover border border-ink-border text-ink-text transition-colors"
- >
- <Plus className="w-4 h-4" />
- <span>添加自定义游戏</span>
- </button>
-
- <button
- onClick={() => setAdvancedOpen(!advancedOpen)}
- className="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold rounded-card bg-ink-elevated hover:bg-ink-hover border border-ink-border text-ink-text transition-colors"
- >
- <Wrench className="w-4 h-4" />
- <span>高级 WGS 工具</span>
- {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
- </button>
- </div>
-
- {advancedOpen && (
- <div>
- <ManualConverter onAddLog={addLog} />
- </div>
- )}
- </div>
+        {/* 高级 WGS 工具内容（入口已在页面顶部） */}
+        {activeTab === 'games' && advancedOpen && (
+          <div className="mt-6">
+            <ManualConverter onAddLog={addLog} />
+          </div>
+        )}
  </>
  ) : activeTab === 'backups' ? (
  <BackupManager onAddLog={addLog} />
  ) : activeTab === 'xbox' ? (
- <XboxLibraryPanel onAddLog={addLog} />
+          <XboxLibraryPanel
+            onAddLog={addLog}
+            games={libraryGames}
+            scanning={libraryScanning}
+            hasScanned={libraryScanned}
+            onForceRefresh={() => loadLibrary(true)}
+            highlightKey={searchTarget?.tab === 'xbox' ? searchTarget.key : null}
+          />
         ) : (
           <SettingsPanel
             onAddLog={addLog}
@@ -564,13 +639,21 @@ export const App: React.FC = () => {
         />
       )}
 
- {confirmConfig && (
- <ConfirmDialog
- {...confirmConfig}
- onConfirm={handleConfirm}
- onCancel={handleCancelConfirm}
- />
- )}
+      <SearchPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        games={games}
+        libraryGames={libraryGames}
+        onJump={handleSearchJump}
+      />
+
+      {confirmConfig && (
+        <ConfirmDialog
+          {...confirmConfig}
+          onConfirm={handleConfirm}
+          onCancel={handleCancelConfirm}
+        />
+      )}
 
  {logVisible && (
  <LogConsole logs={logs} onClear={() => setLogs([])} onClose={() => setLogVisible(false)} />

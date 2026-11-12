@@ -4,6 +4,7 @@ import path from 'path';
 import { GAME_DATABASE } from './gameDatabase.js';
 import { readAppxManifestInfo } from './gameDetector.js';
 import { checkGameRunning, closePlatformClient } from './processCheck.js';
+import { getDataFilePath } from './dataDir.js';
 
 /**
  * Xbox Game Pass 游戏库 — 扫描已安装的打包游戏、AUMID 直启、云存档同步控制。
@@ -28,7 +29,39 @@ const NON_GAME_PREFIXES = [
 
 let scanCache = null;
 let scanCacheTime = 0;
-const SCAN_CACHE_TTL = 60 * 1000;
+// 内存缓存只做短时去抖；真正的"进入程序立即有内容"靠磁盘缓存。
+const SCAN_CACHE_TTL = 10 * 60 * 1000;
+// 磁盘缓存过期后仍可先返回旧结果（stale-while-revalidate），避免首屏空白。
+const DISK_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+const CACHE_FILE = getDataFilePath('xbox-library-cache.json');
+
+/** 读取磁盘缓存；过期返回 null。 */
+function readDiskCache(maxAgeMs) {
+  try {
+    if (!fs.existsSync(CACHE_FILE)) return null;
+    const raw = fs.readFileSync(CACHE_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.games)) return null;
+    const age = Date.now() - new Date(parsed.savedAt || 0).getTime();
+    if (!Number.isFinite(age) || age > maxAgeMs) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** 原子写磁盘缓存，失败不影响主流程。 */
+function writeDiskCache(games) {
+  try {
+    const payload = JSON.stringify({ savedAt: new Date().toISOString(), games }, null, 2);
+    const tmp = `${CACHE_FILE}.tmp.${process.pid}`;
+    fs.writeFileSync(tmp, payload, 'utf8');
+    fs.renameSync(tmp, CACHE_FILE);
+  } catch {
+    // 缓存写不进去只是下次变慢，不报错
+  }
+}
 
 /** One PowerShell pass mapping every installed package → {pfn, installLocation}. */
 function queryAllPackages() {
@@ -115,10 +148,23 @@ function hasGameConfig(installLocation) {
  */
 export function scanXboxLibrary({ refresh = false } = {}) {
   const now = Date.now();
+
+  // 1. 内存缓存（10 分钟内直接返回，切 Tab 不重扫）
   if (!refresh && scanCache && now - scanCacheTime < SCAN_CACHE_TTL) {
-    return { games: scanCache };
+    return { games: scanCache, cached: 'memory' };
   }
 
+  // 2. 磁盘缓存（程序重启后首屏立即有内容）
+  if (!refresh) {
+    const disk = readDiskCache(DISK_CACHE_MAX_AGE);
+    if (disk) {
+      scanCache = disk.games;
+      scanCacheTime = now;
+      return { games: disk.games, cached: 'disk', savedAt: disk.savedAt };
+    }
+  }
+
+  // 3. 真正扫描
   const packages = queryAllPackages();
   const games = [];
   for (const { pfn, installLocation } of packages) {
@@ -154,7 +200,8 @@ export function scanXboxLibrary({ refresh = false } = {}) {
 
   scanCache = games;
   scanCacheTime = now;
-  return { games };
+  writeDiskCache(games);
+  return { games, cached: 'fresh' };
 }
 
 /**

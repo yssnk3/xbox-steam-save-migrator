@@ -10,9 +10,11 @@ interface GameGridProps {
   onQuickMigrate: (game: GameItem, direction: 'xbox_to_steam' | 'steam_to_xbox') => void;
   onTestGame?: (game: GameItem) => void;
   isMigrating: boolean;
+  /** 搜索跳转后要高亮的游戏 id */
+  highlightKey?: string | null;
 }
 
-export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuickMigrate, onTestGame, isMigrating }) => {
+export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuickMigrate, onTestGame, isMigrating, highlightKey }) => {
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'detected' | 'both'>('detected');
@@ -100,6 +102,7 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
               onQuickMigrate={onQuickMigrate}
               onTestGame={onTestGame}
               isMigrating={isMigrating}
+              highlighted={highlightKey === game.id}
               onError={(msg) => toast(msg, 'error')}
             />
           ))}

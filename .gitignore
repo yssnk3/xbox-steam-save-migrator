@@ -37,3 +37,6 @@ Thumbs.db
 
 # 用户设置（含 API Key，绝不入库）
 settings.json
+
+# 扫描结果磁盘缓存（运行时生成）
+xbox-library-cache.json
