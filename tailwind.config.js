@@ -5,13 +5,32 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Microsoft YaHei"', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'Consolas', 'monospace'],
+        // Notion 的字体栈：优先系统 UI 字体
+        sans: [
+          'ui-sans-serif',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Helvetica',
+          '"Microsoft YaHei"',
+          'Arial',
+          'sans-serif',
+        ],
+        mono: [
+          'ui-monospace',
+          '"SFMono-Regular"',
+          '"SF Mono"',
+          'Menlo',
+          'Consolas',
+          '"Liberation Mono"',
+          'monospace',
+        ],
       },
       colors: {
         // 全部走 CSS 变量：明暗主题与强调色由 index.css 的 :root / [data-theme] / [data-accent] 决定。
         // 组件里的 bg-ink-* / text-ink-* / border-ink-* 无需改动即可跟随主题。
         ink: {
+          sidebar: 'var(--ink-sidebar)',
           base: 'var(--ink-base)',
           surface: 'var(--ink-surface)',
           elevated: 'var(--ink-elevated)',
@@ -25,6 +44,8 @@ export default {
           'solid-hover': 'var(--ink-solid-hover)',
           accent: 'var(--ink-accent)',
           'accent-soft': 'var(--ink-accent-soft)',
+          hover: 'var(--hover-bg)',
+          active: 'var(--active-bg)',
           success: 'var(--ink-success)',
           warning: 'var(--ink-warning)',
           danger: 'var(--ink-danger)',
@@ -33,16 +54,24 @@ export default {
         },
       },
       borderRadius: {
-        // 新拟态规范：容器 12px、控件 8px
-        card: '12px',
-        btn: '8px',
+        // Notion 规范：控件 4px、卡片 6px、浮层 8px
+        card: '6px',
+        btn: '4px',
+        modal: '8px',
       },
       boxShadow: {
-        // 由 CSS 变量驱动，随主题切换明暗
-        raise: 'var(--shadow-raise)',
-        inset: 'var(--shadow-inset)',
-        card: 'var(--shadow-raise)',
+        raise: 'none',
+        inset: 'none',
+        card: 'var(--shadow-card)',
         glass: 'var(--shadow-float)',
+        menu: 'var(--shadow-menu)',
+      },
+      fontSize: {
+        // 与 .t-* 阶梯对齐，供 Tailwind 侧使用
+        'ui-sm': ['12px', { lineHeight: '18px' }],
+        'ui-base': ['14px', { lineHeight: '21px' }],
+        'ui-lg': ['16px', { lineHeight: '22px' }],
+        'ui-xl': ['20px', { lineHeight: '26px' }],
       },
     },
   },

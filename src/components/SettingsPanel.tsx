@@ -14,7 +14,7 @@ interface SettingsPanelProps {
 }
 
 const INPUT_CLASS =
-  'w-full bg-ink-elevated border border-ink-border rounded-btn px-3 py-2 text-[13px] text-ink-text placeholder:text-ink-faint focus:outline-none focus:border-ink-faint transition-colors';
+  'w-full bg-ink-base border border-ink-border rounded-btn px-3 py-2 text-[14px] text-ink-text placeholder:text-ink-faint hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)] transition-colors';
 
 const LABEL_CLASS = 'block text-[12px] font-medium text-ink-muted mb-1.5';
 
@@ -150,8 +150,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog, themeMode, acce
                 <button
                   key={value}
                   onClick={() => onThemeChange(value)}
-                  className={`px-3 py-2 rounded-btn text-[12px] flex items-center gap-1.5 transition-all ${
-                    themeMode === value ? 'panel-inset text-ink-text' : 'btn-ghost'
+                  className={`px-3 py-2 rounded-btn text-[13px] flex items-center gap-1.5 transition-colors ${
+                    themeMode === value
+                      ? 'bg-ink-active text-ink-text font-medium border border-ink-border'
+                      : 'btn-ghost'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />

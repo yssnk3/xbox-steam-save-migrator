@@ -14,10 +14,10 @@ const ToastContext = createContext<(message: string, type?: ToastType) => void>(
 export const useToast = () => useContext(ToastContext);
 
 const TOAST_STYLES: Record<ToastType, { icon: React.ReactNode; bar: string; text: string; bg: string }> = {
- success: { icon: <CheckCircle2 className="w-4 h-4 text-green-600" />, bar: 'border-l-green-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 ' },
- error: { icon: <XCircle className="w-4 h-4 text-red-400" />, bar: 'border-l-red-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 ' },
- warning: { icon: <AlertTriangle className="w-4 h-4 text-orange-400" />, bar: 'border-l-orange-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 ' },
- info: { icon: <Info className="w-4 h-4 text-blue-400" />, bar: 'border-l-blue-500', text: 'text-ink-text', bg: 'bg-ink-elevated/95 ' },
+ success: { icon: <CheckCircle2 className="w-4 h-4 text-ink-success" />, bar: 'border-l-[color:var(--ink-success)]', text: 'text-ink-text', bg: 'bg-ink-base/95 backdrop-blur-sm ' },
+ error: { icon: <XCircle className="w-4 h-4 text-ink-danger" />, bar: 'border-l-[color:var(--ink-danger)]', text: 'text-ink-text', bg: 'bg-ink-base/95 backdrop-blur-sm ' },
+ warning: { icon: <AlertTriangle className="w-4 h-4 text-ink-warning" />, bar: 'border-l-[color:var(--ink-warning)]', text: 'text-ink-text', bg: 'bg-ink-base/95 backdrop-blur-sm ' },
+ info: { icon: <Info className="w-4 h-4 text-ink-accent" />, bar: 'border-l-[color:var(--ink-accent)]', text: 'text-ink-text', bg: 'bg-ink-base/95 backdrop-blur-sm ' },
 };
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,7 +48,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
  return (
  <div
  key={t.id}
- className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-btn border border-l-[3px] ${s.bar} border-ink-border ${s.bg} shadow-glass`}
+ className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-[6px] border border-l-[3px] ${s.bar} border-ink-border ${s.bg} shadow-glass`}
  style={{ animation: 'toast-slide-in 0.25s ease-out' }}
  >
  <div className="shrink-0 mt-0.5">{s.icon}</div>

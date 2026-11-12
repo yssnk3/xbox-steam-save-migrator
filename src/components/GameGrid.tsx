@@ -49,13 +49,10 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
     <button
       key={mode}
       onClick={() => setFilterMode(mode)}
-      className={`px-2 py-1 text-[12px] rounded-btn transition-colors ${
-        filterMode === mode
-          ? 'bg-ink-raised text-ink-text'
-          : 'text-ink-muted hover:text-ink-text'
-      }`}
+      data-active={filterMode === mode}
+      className="px-2 py-1 text-[13px] rounded-[4px] transition-colors text-ink-muted hover:text-ink-text hover:bg-ink-hover data-[active=true]:bg-ink-base data-[active=true]:text-ink-text data-[active=true]:font-medium data-[active=true]:shadow-[0_1px_2px_rgba(15,15,15,0.1)]"
     >
-      {label} <span className="text-ink-faint">{count}</span>
+      {label} <span className="text-ink-faint tabular-nums">{count}</span>
     </button>
   );
 
@@ -76,11 +73,11 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
             placeholder="搜索游戏名…"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full bg-ink-elevated border border-ink-border rounded-btn pl-7 pr-2 py-1 text-[12px] text-ink-text placeholder:text-ink-faint focus:outline-none focus:border-ink-faint"
+            className="w-full bg-ink-base border border-ink-border rounded-btn pl-7 pr-2 py-1 text-[13px] text-ink-text placeholder:text-ink-faint hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
           />
         </div>
 
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 p-0.5 rounded-[5px] bg-ink-elevated border border-ink-borderSoft">
           {filterBtn('detected', '本机已有', detectedCount)}
           {filterBtn('both', '双端', bothCount)}
           {filterBtn('all', '全部', games.length)}
@@ -90,11 +87,11 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
       {/* 列表：单一容器 + 分隔线，不再每行一张卡 */}
       {filteredGames.length === 0 ? (
         <div className="panel px-4 py-10 text-center">
-          <p className="text-[13px] text-ink-muted">未匹配到游戏</p>
+          <p className="text-[14px] text-ink-muted">未匹配到游戏</p>
           <p className="t-meta mt-1">换个关键词，或用上方「识别存档」直接选择存档文件夹</p>
         </div>
       ) : (
-        <div className="panel divide-y divide-[#1F2033] overflow-hidden">
+        <div className="panel divide-y divide-ink-borderSoft overflow-hidden">
           {filteredGames.map(game => (
             <GameCard
               key={game.id}

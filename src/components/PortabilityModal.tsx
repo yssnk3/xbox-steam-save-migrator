@@ -13,13 +13,13 @@ interface PortabilityModalProps {
 }
 
 const VERDICT_META: Record<string, { label: string; cls: string }> = {
- ok: { label: '可移植', cls: 'text-emerald-400' },
- partial: { label: '部分不可写', cls: 'text-amber-400' },
- 'needs-launch': { label: '需先启动游戏', cls: 'text-amber-400' },
+ ok: { label: '可移植', cls: 'text-ink-success' },
+ partial: { label: '部分不可写', cls: 'text-ink-warning' },
+ 'needs-launch': { label: '需先启动游戏', cls: 'text-ink-warning' },
  'no-source': { label: '未找到源存档', cls: 'text-ink-muted' },
  empty: { label: '源为空', cls: 'text-ink-muted' },
- refused: { label: '已拦截', cls: 'text-red-400' },
- error: { label: '预演异常', cls: 'text-red-400' },
+ refused: { label: '已拦截', cls: 'text-ink-danger' },
+ error: { label: '预演异常', cls: 'text-ink-danger' },
  unknown: { label: '未知', cls: 'text-ink-faint' },
 };
 
@@ -34,7 +34,7 @@ function DirectionCard({ title, icon, report }: {
  <div className="flex items-center gap-2">
  <span className="text-ink-muted">{icon}</span>
  <span className="font-semibold text-[13px] text-ink-text">{title}</span>
- <span className={`ml-auto px-2 py-0.5 rounded border text-[11px] font-bold ${meta.cls}`}>{meta.label}</span>
+ <span className={`ml-auto px-2 py-0.5 rounded border text-[11px] font-semibold ${meta.cls}`}>{meta.label}</span>
  </div>
 
  {(report.reasons || []).map((r, i) => (
@@ -77,7 +77,7 @@ function DirectionCard({ title, icon, report }: {
  )}
 
  {report.unusedSteamFiles && report.unusedSteamFiles.length > 0 && (
- <div className="text-[11px] text-amber-400/90">
+ <div className="text-[11px] text-ink-warning/90">
  ⚠️ 以下文件没有对应槽位，不会写入：{report.unusedSteamFiles.join('、')}
  </div>
  )}
@@ -127,9 +127,9 @@ export const PortabilityModal: React.FC<PortabilityModalProps> = ({ game, onClos
  if (!game) return null;
 
  return (
- <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 " onClick={onClose}>
+ <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(15,15,15,0.6)]" onClick={onClose}>
  <div
- className="glass-panel w-full max-w-2xl rounded-card p-5 space-y-4 max-h-[85vh] overflow-auto"
+ className="bg-ink-surface border border-ink-border w-full max-w-2xl rounded-modal shadow-glass p-5 space-y-4 max-h-[85vh] overflow-auto"
  onClick={e => e.stopPropagation()}
  >
         {/* Header */}
@@ -147,12 +147,12 @@ export const PortabilityModal: React.FC<PortabilityModalProps> = ({ game, onClos
  {report?.game && (
  <div className="flex flex-wrap gap-1.5">
  {report.game.accountBound && (
- <span className="px-2 py-0.5 rounded border border-ink-border text-amber-400 text-[11px] flex items-center gap-1">
+ <span className="px-2 py-0.5 rounded border border-ink-border text-ink-warning text-[11px] flex items-center gap-1">
  <KeyRound className="w-3 h-3" /> 账号绑定：只移植自己的存档
  </span>
  )}
  {report.game.needsConversionTool && (
- <span className="px-2 py-0.5 rounded border border-ink-border text-red-400 text-[11px]">
+ <span className="px-2 py-0.5 rounded border border-ink-border text-ink-danger text-[11px]">
  需外部工具转换：{report.game.needsConversionTool}
  </span>
  )}

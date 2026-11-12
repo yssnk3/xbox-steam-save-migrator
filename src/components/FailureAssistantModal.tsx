@@ -149,9 +149,9 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const badBlobs = verify?.blobs?.filter(b => !b.exists || !b.sizeOk) || [];
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-black/70" onClick={onClose} role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-[rgba(15,15,15,0.6)]" onClick={onClose} role="dialog" aria-modal="true">
       <div
-        className="bg-ink-surface border border-ink-border w-full max-w-2xl rounded-card shadow-glass overflow-hidden flex flex-col max-h-[85vh] modal-animate"
+        className="bg-ink-surface border border-ink-border w-full max-w-2xl rounded-modal shadow-glass overflow-hidden flex flex-col max-h-[85vh] modal-animate"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

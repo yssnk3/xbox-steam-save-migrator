@@ -3,194 +3,330 @@
 @tailwind utilities;
 
 /* ============================================================
-   主题变量
-   - 深色为默认（:root），浅色由 [data-theme="light"] 覆盖
+   Notion 设计语言 token
+   - 浅色为默认（:root），深色由 [data-theme="dark"] 覆盖
    - 强调色由 [data-accent="..."] 覆盖 --ink-accent
-   - 所有组件类与 Tailwind ink-* 都引用这些变量，切换主题无需改组件
+   - 所有组件类与 Tailwind ink-* 引用这些变量，切换主题无需改组件
+
+   与旧版（新拟态）的关键差异：
+   1. 无双向柔和阴影：表面靠 1px 边框与极浅阴影区分，不做凸起/凹陷
+   2. 侧栏与内容区背景不同色（#F7F7F5 / #FFFFFF），靠色差划边界
+   3. 圆角收紧到 4px（控件）/ 6px（卡片），Notion 只在浮层用 8px
+   4. 文字主色是暖调近黑 #37352F，不是纯黑
    ============================================================ */
 :root {
-  --ink-base: #0B0B16;
-  --ink-surface: #14141F;
-  --ink-elevated: #1C1C2C;
-  --ink-raised: #232338;
-  --ink-text: #E7E9F0;
-  --ink-muted: #8B8FA3;
-  --ink-faint: #5A5E72;
-  --ink-border: #262840;
-  --ink-border-soft: rgba(255, 255, 255, 0.06);
-  --ink-solid: #E7E9F0;
-  --ink-solid-hover: #FFFFFF;
+  /* 表面层级：sidebar < base(内容) < elevated(卡片) < raised(浮起) */
+  --ink-sidebar: #F7F7F5;
+  --ink-base: #FFFFFF;
+  --ink-surface: #FFFFFF;
+  --ink-elevated: #F7F7F5;
+  --ink-raised: #EFEFED;
 
-  /* 业务语义色 */
-  --ink-success: #34D399;
-  --ink-warning: #FBBF24;
-  --ink-danger: #F43F5E;
-  --ink-x2s: #10B981;
-  --ink-s2x: #38BDF8;
+  /* 文字：Notion 的暖灰阶 */
+  --ink-text: #37352F;
+  --ink-muted: #787774;
+  --ink-faint: #9B9A97;
+
+  /* 边框 */
+  --ink-border: #E9E9E7;
+  --ink-border-soft: rgba(55, 53, 47, 0.09);
+
+  /* 实心按钮（反色） */
+  --ink-solid: #37352F;
+  --ink-solid-hover: #1F1E1B;
+
+  /* 业务语义色：Notion 的柔和色板，不刺眼 */
+  --ink-success: #0F7B6C;
+  --ink-warning: #CB912F;
+  --ink-danger: #EB5757;
+  --ink-x2s: #0F7B6C;
+  --ink-s2x: #2383E2;
+
+  /* 语义色浅底/边框（用于提示条、选中方向块） */
+  --ink-success-soft: rgba(15, 123, 108, 0.08);
+  --ink-success-border: rgba(15, 123, 108, 0.28);
+  --ink-danger-soft: rgba(235, 87, 87, 0.08);
+  --ink-danger-border: rgba(235, 87, 87, 0.3);
+  --ink-warning-soft: rgba(203, 145, 47, 0.1);
+  --ink-warning-border: rgba(203, 145, 47, 0.3);
+  --ink-accent-border: rgba(35, 131, 226, 0.35);
 
   /* 强调色（由 data-accent 覆盖） */
-  --ink-accent: #E7E9F0;
-  --ink-accent-soft: rgba(231, 233, 240, 0.12);
+  --ink-accent: #2383E2;
+  --ink-accent-soft: rgba(35, 131, 226, 0.1);
 
-  /* 新拟态阴影：深色下高光弱、暗影强 */
-  --sh-light: rgba(255, 255, 255, 0.045);
-  --sh-dark: rgba(0, 0, 0, 0.55);
-  --shadow-raise: -4px -4px 10px var(--sh-light), 4px 4px 10px var(--sh-dark);
-  --shadow-inset: inset 3px 3px 6px var(--sh-dark), inset -3px -3px 6px var(--sh-light);
-  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.55);
+  /* Notion 交互底色 */
+  --hover-bg: rgba(55, 53, 47, 0.06);
+  --active-bg: rgba(55, 53, 47, 0.08);
+  --selected-bg: rgba(55, 53, 47, 0.08);
 
-  --focus-ring: #8B8FA3;
-  color-scheme: dark;
-}
+  /* 阴影：扁平，只用于浮层 */
+  --shadow-raise: none;
+  --shadow-inset: none;
+  --shadow-card: 0 0 0 1px var(--ink-border-soft);
+  --shadow-float: rgba(15, 15, 15, 0.05) 0 0 0 1px,
+    rgba(15, 15, 15, 0.1) 0 3px 6px,
+    rgba(15, 15, 15, 0.2) 0 9px 24px;
+  --shadow-menu: rgba(15, 15, 15, 0.05) 0 0 0 1px,
+    rgba(15, 15, 15, 0.1) 0 3px 6px,
+    rgba(15, 15, 15, 0.2) 0 9px 24px;
 
-[data-theme='light'] {
-  --ink-base: #E8ECF3;
-  --ink-surface: #E8ECF3;
-  --ink-elevated: #EEF1F7;
-  --ink-raised: #DFE4EE;
-  --ink-text: #1B2030;
-  --ink-muted: #5A6274;
-  --ink-faint: #858CA0;
-  --ink-border: #D2D8E4;
-  --ink-border-soft: rgba(20, 26, 40, 0.07);
-  --ink-solid: #1B2030;
-  --ink-solid-hover: #000000;
-
-  --ink-success: #0F7A5A;
-  --ink-warning: #A15C00;
-  --ink-danger: #C0264A;
-  --ink-x2s: #0B8F6A;
-  --ink-s2x: #0B6E9E;
-
-  /* 浅色下高光更强、暗影更柔，这是新拟态最典型的状态 */
-  --sh-light: rgba(255, 255, 255, 0.95);
-  --sh-dark: rgba(163, 177, 198, 0.55);
-  --shadow-raise: -5px -5px 12px var(--sh-light), 5px 5px 12px var(--sh-dark);
-  --shadow-inset: inset 3px 3px 7px var(--sh-dark), inset -3px -3px 7px var(--sh-light);
-  --shadow-float: 0 14px 36px rgba(120, 135, 160, 0.35);
-
-  --focus-ring: #2F3A55;
+  --focus-ring: #2383E2;
   color-scheme: light;
 }
 
-/* 5 个预设强调色（均已按对比度挑选） */
-[data-accent='blue']   { --ink-accent: #3B82F6; --ink-accent-soft: rgba(59, 130, 246, 0.16); }
-[data-accent='green']  { --ink-accent: #10B981; --ink-accent-soft: rgba(16, 185, 129, 0.16); }
-[data-accent='orange'] { --ink-accent: #F59E0B; --ink-accent-soft: rgba(245, 158, 11, 0.16); }
-[data-accent='violet'] { --ink-accent: #8B5CF6; --ink-accent-soft: rgba(139, 92, 246, 0.16); }
-[data-accent='neutral'] { --ink-accent: var(--ink-text); --ink-accent-soft: rgba(139, 143, 163, 0.16); }
+[data-theme='dark'] {
+  --ink-sidebar: #202020;
+  --ink-base: #191919;
+  --ink-surface: #191919;
+  --ink-elevated: #252525;
+  --ink-raised: #2F2F2F;
+
+  --ink-text: #D4D4D4;
+  --ink-muted: #9B9B9B;
+  --ink-faint: #6F6F6F;
+
+  --ink-border: #2F2F2F;
+  --ink-border-soft: rgba(255, 255, 255, 0.08);
+
+  --ink-solid: #E8E8E6;
+  --ink-solid-hover: #FFFFFF;
+
+  --ink-success: #4DAB9A;
+  --ink-warning: #D9A343;
+  --ink-danger: #FF7369;
+  --ink-x2s: #4DAB9A;
+  --ink-s2x: #529CCA;
+
+  --ink-success-soft: rgba(77, 171, 154, 0.12);
+  --ink-success-border: rgba(77, 171, 154, 0.35);
+  --ink-danger-soft: rgba(255, 115, 105, 0.12);
+  --ink-danger-border: rgba(255, 115, 105, 0.35);
+  --ink-warning-soft: rgba(217, 163, 67, 0.14);
+  --ink-warning-border: rgba(217, 163, 67, 0.35);
+  --ink-accent-border: rgba(82, 156, 202, 0.4);
+
+  --ink-accent: #529CCA;
+  --ink-accent-soft: rgba(82, 156, 202, 0.16);
+
+  --hover-bg: rgba(255, 255, 255, 0.055);
+  --active-bg: rgba(255, 255, 255, 0.08);
+  --selected-bg: rgba(255, 255, 255, 0.08);
+
+  --shadow-card: 0 0 0 1px var(--ink-border-soft);
+  --shadow-float: rgba(15, 15, 15, 0.4) 0 0 0 1px,
+    rgba(15, 15, 15, 0.5) 0 3px 6px,
+    rgba(15, 15, 15, 0.6) 0 9px 24px;
+  --shadow-menu: var(--shadow-float);
+
+  --focus-ring: #529CCA;
+  color-scheme: dark;
+}
+
+/* 5 个预设强调色（Notion 色板，浅色下均满足对比度） */
+[data-accent='blue']    { --ink-accent: #2383E2; --ink-accent-soft: rgba(35, 131, 226, 0.1); }
+[data-accent='green']   { --ink-accent: #0F7B6C; --ink-accent-soft: rgba(15, 123, 108, 0.1); }
+[data-accent='orange']  { --ink-accent: #D9730D; --ink-accent-soft: rgba(217, 115, 13, 0.1); }
+[data-accent='violet']  { --ink-accent: #6940A5; --ink-accent-soft: rgba(105, 64, 165, 0.1); }
+[data-accent='neutral'] {
+  --ink-accent: var(--ink-text);
+  --ink-accent-soft: rgba(55, 53, 47, 0.08);
+}
+
+[data-theme='dark'][data-accent='blue']   { --ink-accent: #529CCA; --ink-accent-soft: rgba(82, 156, 202, 0.16); }
+[data-theme='dark'][data-accent='green']  { --ink-accent: #4DAB9A; --ink-accent-soft: rgba(77, 171, 154, 0.16); }
+[data-theme='dark'][data-accent='orange'] { --ink-accent: #D9A343; --ink-accent-soft: rgba(217, 163, 67, 0.16); }
+[data-theme='dark'][data-accent='violet'] { --ink-accent: #9A6DD7; --ink-accent-soft: rgba(154, 109, 215, 0.16); }
 
 @layer base {
   body {
     background-color: var(--ink-base);
     color: var(--ink-text);
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
-    font-size: 13px;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+      Helvetica, 'Apple Color Emoji', Arial, sans-serif, 'Apple Color Emoji',
+      'Segoe UI Emoji', 'Microsoft YaHei';
+    font-size: 14px;
     line-height: 1.5;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.18s ease, color 0.18s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Notion 的标题字重阶梯：600 → 500 → 400 */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.01em;
   }
 }
 
 @layer components {
-  /* 面板：新拟态凸起面，与背景同色，靠双向阴影制造厚度 */
+  /* ---------- 表面 ---------- */
+  /* 卡片：白底 + 1px 边框，无阴影（Notion 的默认卡片形态） */
   .panel {
     background-color: var(--ink-surface);
-    border: 1px solid var(--ink-border-soft);
-    border-radius: 12px;
-    box-shadow: var(--shadow-raise);
+    border: 1px solid var(--ink-border);
+    border-radius: 6px;
   }
 
-  /* 凹陷面板：用于侧边栏选中项、输入区 */
+  /* 兼容旧类名：凹陷改为「次级底色 + 边框」，不再有内阴影 */
   .panel-inset {
-    background-color: var(--ink-surface);
-    border: 1px solid transparent;
-    border-radius: 8px;
-    box-shadow: var(--shadow-inset);
+    background-color: var(--ink-elevated);
+    border: 1px solid var(--ink-border);
+    border-radius: 4px;
   }
 
-  /* 主操作按钮 */
+  /* ---------- 按钮 ---------- */
   .btn-primary {
     background-color: var(--ink-solid);
     color: var(--ink-base);
-    border-radius: 8px;
+    border-radius: 4px;
     font-weight: 500;
-    box-shadow: var(--shadow-raise);
-    transition: background-color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
+    font-size: 14px;
+    transition: background-color 0.1s ease;
   }
   .btn-primary:hover:not(:disabled) {
     background-color: var(--ink-solid-hover);
   }
   .btn-primary:active:not(:disabled) {
-    box-shadow: var(--shadow-inset);
-    transform: translateY(1px);
+    background-color: var(--ink-solid-hover);
+    transform: translateY(0.5px);
   }
   .btn-primary:disabled {
     opacity: 0.4;
     pointer-events: none;
   }
 
-  /* 次要按钮 */
   .btn-ghost {
     background-color: transparent;
-    color: var(--ink-muted);
+    color: var(--ink-text);
     border: 1px solid var(--ink-border);
-    border-radius: 8px;
+    border-radius: 4px;
     font-weight: 500;
-    transition: background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+    font-size: 14px;
+    transition: background-color 0.1s ease, border-color 0.1s ease;
   }
   .btn-ghost:hover:not(:disabled) {
-    background-color: var(--ink-elevated);
-    color: var(--ink-text);
-    box-shadow: var(--shadow-raise);
+    background-color: var(--hover-bg);
   }
   .btn-ghost:active:not(:disabled) {
-    box-shadow: var(--shadow-inset);
+    background-color: var(--active-bg);
   }
   .btn-ghost:disabled {
     opacity: 0.4;
     pointer-events: none;
   }
 
-  /* 输入控件：凹陷 */
-  .input-inset {
-    background-color: var(--ink-surface);
+  /* Notion 最常见的「无边框文字按钮」：只在 hover 出现底色 */
+  .btn-text {
+    background-color: transparent;
+    color: var(--ink-muted);
+    border-radius: 4px;
+    transition: background-color 0.1s ease, color 0.1s ease;
+  }
+  .btn-text:hover:not(:disabled) {
+    background-color: var(--hover-bg);
     color: var(--ink-text);
-    border: 1px solid transparent;
-    border-radius: 8px;
-    box-shadow: var(--shadow-inset);
-    transition: box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+
+  /* ---------- 输入 ---------- */
+  .input-inset {
+    background-color: var(--ink-base);
+    color: var(--ink-text);
+    border: 1px solid var(--ink-border);
+    border-radius: 4px;
+    transition: border-color 0.1s ease, box-shadow 0.1s ease;
+  }
+  .input-inset:hover {
+    border-color: var(--ink-faint);
   }
   .input-inset:focus {
     outline: none;
     border-color: var(--ink-accent);
+    box-shadow: 0 0 0 2px var(--ink-accent-soft);
   }
   .input-inset::placeholder {
     color: var(--ink-faint);
   }
 
-  /* 排版阶梯：全站只用这几档 + mono */
-  .t-title {
-    font-size: 15px;
+  /* ---------- 侧边栏条目 ---------- */
+  /* Notion：未选中无底色，hover 浅灰，选中浅灰 + 500 字重 */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: var(--ink-muted);
+    transition: background-color 0.08s ease, color 0.08s ease;
+    text-align: left;
+  }
+  .nav-item:hover {
+    background-color: var(--hover-bg);
+    color: var(--ink-text);
+  }
+  .nav-item[data-active='true'] {
+    background-color: var(--selected-bg);
+    color: var(--ink-text);
+    font-weight: 500;
+  }
+  .nav-item:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  /* 分组标题：小号、灰色、hover 才显形 */
+  .nav-group-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-faint);
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    border-radius: 4px;
+    transition: background-color 0.08s ease;
+  }
+  .nav-group-label:hover {
+    background-color: var(--hover-bg);
+  }
+
+  /* ---------- 排版阶梯 ---------- */
+  .t-page-title {
+    font-size: 20px;
     font-weight: 600;
     line-height: 1.3;
     color: var(--ink-text);
+    letter-spacing: -0.01em;
+  }
+  .t-title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink-text);
+    letter-spacing: -0.01em;
+  }
+  .t-subtitle {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-text);
   }
   .t-body {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 400;
     color: var(--ink-text);
   }
   .t-meta {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
     color: var(--ink-faint);
   }
   .t-mono {
-    font-family: 'JetBrains Mono', Consolas, monospace;
-    font-size: 11px;
+    font-family: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas,
+      'Liberation Mono', monospace;
+    font-size: 12px;
     color: var(--ink-faint);
   }
 
@@ -200,18 +336,62 @@
   .row-divider:last-child {
     border-bottom: none;
   }
+
+  /* 列表行：Notion 的 hover 反馈统一靠浅底 */
+  .list-row {
+    transition: background-color 0.08s ease;
+  }
+  .list-row:hover {
+    background-color: var(--hover-bg);
+  }
+
+  /* 状态徽章 */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    height: 20px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+
+  /* ---------- 语义提示块（提示条 / 方向选择卡片） ---------- */
+  .tone-success {
+    background-color: var(--ink-success-soft);
+    border: 1px solid var(--ink-success-border);
+    color: var(--ink-success);
+  }
+  .tone-danger {
+    background-color: var(--ink-danger-soft);
+    border: 1px solid var(--ink-danger-border);
+    color: var(--ink-danger);
+  }
+  .tone-warning {
+    background-color: var(--ink-warning-soft);
+    border: 1px solid var(--ink-warning-border);
+    color: var(--ink-warning);
+  }
+  .tone-accent {
+    background-color: var(--ink-accent-soft);
+    border: 1px solid var(--ink-accent-border);
+    color: var(--ink-accent);
+  }
 }
 
-/* 浮层容器：浮起阴影（不是新拟态，保持可辨识度） */
+/* 浮层容器：Notion 的多层阴影 */
 .glass-panel {
-  background: var(--ink-surface);
+  background: var(--ink-base);
   border: 1px solid var(--ink-border);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: var(--shadow-float);
 }
 
 @keyframes toast-slide-in {
-  from { opacity: 0; transform: translateY(-6px); }
+  from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -220,20 +400,25 @@
   to   { opacity: 1; }
 }
 
-.modal-animate {
-  animation: modal-fade-in 0.14s ease-out;
+@keyframes modal-pop-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* 焦点环：必须可见（新拟态低对比，键盘可达性靠它兜底） */
+.modal-animate {
+  animation: modal-pop-in 0.12s ease-out;
+}
+
+/* 焦点环：Notion 用 2px 半透明蓝 */
 *:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline: 2px solid var(--ink-accent);
+  outline-offset: 1px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -241,12 +426,25 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--ink-border);
-  border-radius: 4px;
+  background: rgba(55, 53, 47, 0.18);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--ink-faint);
+  background: rgba(55, 53, 47, 0.3);
+  background-clip: content-box;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: content-box;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: content-box;
 }
 
 ::selection {

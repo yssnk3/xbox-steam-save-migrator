@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark" data-accent="neutral">
+<html lang="zh-CN" data-theme="light" data-accent="blue">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -14,12 +14,12 @@
       try {
         var raw = localStorage.getItem('sxsm-appearance');
         var a = raw ? JSON.parse(raw) : {};
-        var mode = a.theme === 'light' || a.theme === 'dark' ? a.theme : 'system';
+        var mode = a.theme === 'light' || a.theme === 'dark' ? a.theme : 'light';
         var resolved = mode === 'system'
-          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : mode;
         document.documentElement.dataset.theme = resolved;
-        document.documentElement.dataset.accent = a.accent || 'neutral';
+        document.documentElement.dataset.accent = a.accent || 'blue';
         document.documentElement.dataset.themeMode = mode;
       } catch (e) {}
     </script>

@@ -99,29 +99,29 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
  return (
  <div
- className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+ className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(15,15,15,0.6)]"
  onClick={handleBackdropClick}
  role="dialog"
  aria-modal="true"
  aria-label={`存档对比 — ${game.name}`}
  >
- <div className="bg-ink-surface border border-ink-border w-full max-w-4xl rounded-card overflow-hidden relative modal-animate">
+ <div className="bg-ink-surface border border-ink-border w-full max-w-4xl rounded-modal overflow-hidden relative modal-animate">
 
  {/* Modal Header */}
  <div className="px-6 py-4 border-b border-ink-border flex items-center justify-between">
  <div className="flex items-center gap-3">
  {game.iconUrl && (
- <img src={game.iconUrl} alt={game.name} className="w-11 h-11 rounded-card object-cover border border-ink-border" />
+ <img src={game.iconUrl} alt={game.name} className="w-11 h-11 rounded-[5px] object-cover border border-ink-border" />
  )}
  <div>
- <h2 className="font-bold text-[15px] text-ink-text">{game.name}</h2>
+ <h2 className="font-semibold text-[15px] text-ink-text">{game.name}</h2>
  <p className="text-[12px] text-ink-faint">双端存档校验、文件预览与智能移植面板</p>
  </div>
  </div>
 
  <button
  onClick={onClose}
- className="p-2 rounded-card text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors"
+ className="p-2 rounded-[5px] text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors"
  aria-label="关闭"
  >
  <X className="w-5 h-5" />
@@ -133,16 +133,16 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
  {/* Smart Recommendation Banner */}
  {inspectionData && inspectionData.recommendationReason && (
- <div className="p-4 rounded-card bg-ink-elevated border border-ink-border flex items-center justify-between gap-4">
+ <div className="p-4 rounded-[5px] bg-ink-elevated border border-ink-border flex items-center justify-between gap-4">
  <div className="flex items-center gap-3">
- <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+ <Sparkles className="w-4 h-4 text-ink-success shrink-0" />
  <div className="text-[12px] text-ink-text">
  <span className="font-semibold block mb-0.5">智能推荐诊断：</span>
  {inspectionData.recommendationReason}
  </div>
  </div>
  {isAgainstRecommendation && (
- <span className="px-3 py-1 text-[12px] font-bold rounded-card bg-red-500/15 text-red-400 border border-red-500/30 shrink-0 flex items-center gap-1">
+ <span className="px-3 py-1 text-[12px] font-semibold rounded-[4px] tone-danger border shrink-0 flex items-center gap-1">
  <AlertTriangle className="w-3.5 h-3.5" />
  方向相反
  </span>
@@ -154,16 +154,16 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
  
  {/* Steam Side Panel */}
- <div className="p-4 rounded-card bg-ink-elevated border border-ink-border space-y-3">
+ <div className="p-4 rounded-[5px] bg-ink-elevated border border-ink-border space-y-3">
  <div className="flex items-center justify-between border-b border-ink-border pb-2.5">
  <div className="flex items-center gap-2 text-ink-text font-semibold text-[13px]">
- <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+ <span className="w-2 h-2 rounded-full bg-ink-steam-to-xbox"></span>
  Steam 本地存档区
  </div>
  {game.isSteamDetected && (
  <button
  onClick={() => handleOpenFolder(customSteamPath)}
- className="px-2.5 py-1 text-[11px] font-medium rounded-btn bg-ink-elevated hover:bg-ink-raised text-ink-text border border-ink-border transition-colors flex items-center gap-1"
+ className="px-2.5 py-1 text-[11px] font-medium rounded-btn bg-ink-elevated hover:bg-ink-hover text-ink-text border border-ink-border transition-colors flex items-center gap-1"
  >
  <Folder className="w-3.5 h-3.5" />
  打开文件夹
@@ -178,7 +178,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  type="text"
  value={customSteamPath}
  onChange={e => setCustomSteamPath(e.target.value)}
- className="w-full bg-ink-surface border border-ink-border rounded-card px-3 py-2 font-mono text-[11px] text-ink-text focus:outline-none focus:border-white/25"
+ className="w-full bg-ink-surface border border-ink-border rounded-[5px] px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
  />
  </div>
 
@@ -190,7 +190,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  {/* File list with real MD5 */}
  <div className="pt-2">
  <span className="text-ink-muted text-[11px] block mb-1 font-semibold">存档文件列表 (MD5)：</span>
- <div className="bg-ink-base rounded-card p-2 max-h-32 overflow-y-auto font-mono text-[11px] space-y-1 border border-ink-border">
+ <div className="bg-ink-base rounded-[5px] p-2 max-h-32 overflow-y-auto font-mono text-[11px] space-y-1 border border-ink-border">
  {steamFiles.length > 0 ? (
  steamFiles.map((f, idx) => (
  <div key={idx} className="flex items-center justify-between text-ink-text border-b border-ink-border/40 pb-0.5 gap-2">
@@ -208,16 +208,16 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  </div>
 
  {/* Xbox Side Panel */}
- <div className="p-4 rounded-card bg-ink-elevated border border-ink-border space-y-3">
+ <div className="p-4 rounded-[5px] bg-ink-elevated border border-ink-border space-y-3">
  <div className="flex items-center justify-between border-b border-ink-border pb-2.5">
  <div className="flex items-center gap-2 text-ink-text font-semibold text-[13px]">
- <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+ <span className="w-2 h-2 rounded-full bg-ink-success"></span>
  Xbox WGS 容器存档区
  </div>
  {game.isXboxDetected && (
  <button
  onClick={() => handleOpenFolder(customXboxPath)}
- className="px-2.5 py-1 text-[11px] font-medium rounded-btn bg-ink-elevated hover:bg-ink-raised text-ink-text border border-ink-border transition-colors flex items-center gap-1"
+ className="px-2.5 py-1 text-[11px] font-medium rounded-btn bg-ink-elevated hover:bg-ink-hover text-ink-text border border-ink-border transition-colors flex items-center gap-1"
  >
  <Folder className="w-3.5 h-3.5" />
  打开 WGS 目录
@@ -232,7 +232,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  type="text"
  value={customXboxPath}
  onChange={e => setCustomXboxPath(e.target.value)}
- className="w-full bg-ink-surface border border-ink-border rounded-card px-3 py-2 font-mono text-[11px] text-ink-text focus:outline-none focus:border-white/25"
+ className="w-full bg-ink-surface border border-ink-border rounded-[5px] px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
  />
  </div>
 
@@ -244,7 +244,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  {/* Containers preview */}
  <div className="pt-2">
  <span className="text-ink-muted text-[11px] block mb-1 font-semibold">WGS Save Containers：</span>
- <div className="bg-ink-base rounded-card p-2 max-h-32 overflow-y-auto font-mono text-[11px] space-y-1 border border-ink-border">
+ <div className="bg-ink-base rounded-[5px] p-2 max-h-32 overflow-y-auto font-mono text-[11px] space-y-1 border border-ink-border">
  {xboxContainers.length > 0 ? (
  xboxContainers.map((c, idx) => (
  <div key={idx} className="flex items-center justify-between text-ink-text border-b border-ink-border/40 pb-0.5 gap-2">
@@ -265,19 +265,19 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
  {/* Direction Selection */}
  <div className="space-y-2">
- <label className="text-[12px] font-bold text-ink-text block">确认移植方向：</label>
+ <label className="text-[12px] font-semibold text-ink-text block">确认移植方向：</label>
  <div className="grid grid-cols-2 gap-3">
  
  <button
  onClick={() => setActiveDirection('xbox_to_steam')}
- className={`p-4 rounded-card border flex flex-col items-center gap-2 transition-colors ${
+ className={`p-4 rounded-[5px] border flex flex-col items-center gap-2 transition-colors ${
  activeDirection === 'xbox_to_steam'
- ? 'bg-emerald-600/15 border-emerald-500/60 text-ink-text'
+ ? 'tone-success text-ink-text'
  : 'bg-ink-elevated border-ink-border text-ink-muted hover:border-ink-faint'
  }`}
  >
- <div className="flex items-center gap-2 font-bold text-[13px]">
- <ArrowLeft className="w-4 h-4 text-emerald-400" />
+ <div className="flex items-center gap-2 font-semibold text-[13px]">
+ <ArrowLeft className="w-4 h-4 text-ink-success" />
  <span>从 Xbox 提取并移植至 Steam</span>
  </div>
  <p className="text-[11px] text-ink-faint text-center">
@@ -287,15 +287,15 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
  <button
  onClick={() => setActiveDirection('steam_to_xbox')}
- className={`p-4 rounded-card border flex flex-col items-center gap-2 transition-colors ${
+ className={`p-4 rounded-[5px] border flex flex-col items-center gap-2 transition-colors ${
  activeDirection === 'steam_to_xbox'
- ? 'bg-sky-600/15 border-sky-500/60 text-ink-text'
+ ? 'bg-ink-accent-soft border-ink-steam-to-xbox text-ink-text'
  : 'bg-ink-elevated border-ink-border text-ink-muted hover:border-ink-faint'
  }`}
  >
- <div className="flex items-center gap-2 font-bold text-[13px]">
+ <div className="flex items-center gap-2 font-semibold text-[13px]">
  <span>从 Steam 打包并移植至 Xbox</span>
- <ArrowRight className="w-4 h-4 text-sky-400" />
+ <ArrowRight className="w-4 h-4 text-ink-steam-to-xbox" />
  </div>
  <p className="text-[11px] text-ink-faint text-center">
  读取 Steam 本地存档，打包 Blob 结构并逆向生成 containers.index 写入 Xbox。
@@ -307,19 +307,19 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
 
  {/* Reverse-direction warning */}
  {isAgainstRecommendation && (
- <div className="p-3.5 rounded-card bg-red-950/40 border border-red-500/40 flex items-center gap-3 text-[12px] text-red-200">
- <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+ <div className="p-3.5 rounded-[5px] tone-danger border-[color:var(--ink-danger-border)] flex items-center gap-3 text-[12px] text-ink-danger">
+ <AlertTriangle className="w-4 h-4 text-ink-danger shrink-0" />
  <span>警告：当前选择的移植方向与智能推荐相反，可能导致较新的存档被较旧的存档覆盖！</span>
  </div>
  )}
 
  {/* Backup Guarantee Banner */}
- <div className="p-3.5 rounded-card bg-ink-base border border-ink-border flex items-center justify-between text-[12px] text-ink-muted">
+ <div className="p-3.5 rounded-[5px] bg-ink-base border border-ink-border flex items-center justify-between text-[12px] text-ink-muted">
  <div className="flex items-center gap-2">
- <ShieldCheck className="w-4 h-4 text-emerald-400" />
+ <ShieldCheck className="w-4 h-4 text-ink-success" />
  <span>智能安全防护：覆盖前强制自动创建 ZIP 时间戳归档</span>
  </div>
- <span className="text-[11px] text-emerald-400 font-mono">备份已就绪</span>
+ <span className="text-[11px] text-ink-success font-mono">备份已就绪</span>
  </div>
 
  </div>
@@ -336,7 +336,7 @@ export const SaveComparisonModal: React.FC<SaveComparisonModalProps> = ({
  <button
  onClick={handleExecute}
  disabled={isMigrating}
- className="px-6 py-2.5 text-[12px] font-bold rounded-card bg-ink-solid hover:bg-ink-solid-hover text-ink-base transition-colors disabled:opacity-50 flex items-center gap-2"
+ className="px-6 py-2.5 text-[12px] font-semibold rounded-[5px] bg-ink-solid hover:bg-ink-solid-hover text-ink-base transition-colors disabled:opacity-50 flex items-center gap-2"
  >
  {isMigrating ? (
  <>

@@ -46,14 +46,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
  return (
  <div
- className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-ink-base "
+ className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-[rgba(15,15,15,0.6)]"
  onClick={onCancel}
  role="dialog"
  aria-modal="true"
  aria-label={title}
  >
  <div
- className="bg-ink-surface border border-ink-border w-full max-w-lg rounded-card shadow-glass overflow-hidden"
+ className="bg-ink-surface border border-ink-border w-full max-w-lg rounded-modal shadow-glass overflow-hidden"
  onClick={e => e.stopPropagation()}
  style={{ animation: 'modal-fade-in 0.18s ease-out' }}
  >
@@ -61,7 +61,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
  <div className="px-6 py-4 border-b border-ink-borderSoft flex items-center justify-between">
  <div className="flex items-center gap-3">
  {variant !== 'default' && (
- <AlertTriangle className={`w-5 h-5 ${variant === 'danger' ? 'text-red-400' : 'text-orange-500'}`} />
+ <AlertTriangle className={`w-5 h-5 ${variant === 'danger' ? 'text-ink-danger' : 'text-orange-500'}`} />
  )}
  <h2 className="font-semibold text-[15px] text-ink-text">{title}</h2>
  </div>

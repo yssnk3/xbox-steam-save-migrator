@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GameItem, LogEntry, FailureContext, EnvInfo } from './types';
-import { fetchGames, migrateSave, inspectSave, pickFolder } from './services/api';
+import { fetchGames, fetchBackups, migrateSave, inspectSave, pickFolder } from './services/api';
 import { migrationOutcome, outcomeText } from './utils/migrationOutcome';
 import { buildFailureContext } from './utils/failureContext';
 import FailureAssistantModal from './components/FailureAssistantModal';
 import { Sidebar, TabKey } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { EnvBanner } from './components/EnvBanner';
 import { fetchEnv, saveSettings, fetchSettings } from './services/api';
 import { applyCachedTheme, applyTheme, cacheTheme, watchSystemTheme, ThemeMode, AccentColor, DEFAULT_APPEARANCE } from './theme';
@@ -22,6 +23,15 @@ import { ConfirmDialog, ConfirmDialogConfig } from './components/ConfirmDialog';
 import { WelcomeScreen, isWelcomeDismissed, dismissWelcome } from './components/WelcomeScreen';
 import { useToast } from './components/Toast';
 import { Plus, Wrench, ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+
+
+/** 每个 tab 在正文顶部的大标题与说明（Notion 页面标题形态） */
+const PAGE_META: Record<TabKey, { title: string; desc: string }> = {
+  games: { title: '游戏移植', desc: '识别本机存档，选择方向后一键移植；支持 Steam ↔ Xbox 双向转换。' },
+  xbox: { title: 'Xbox 游戏库', desc: '列出本机已安装的 Xbox / Game Pass 游戏，可直接启动以生成存档结构。' },
+  backups: { title: '备份中心', desc: '每次移植前自动备份，可在此查看、还原或清理历史备份。' },
+  settings: { title: '设置', desc: '路径自检、外观主题与 AI 诊断配置。' },
+};
 
 export const App: React.FC = () => {
  const toast = useToast();
@@ -41,6 +51,7 @@ export const App: React.FC = () => {
   const [failureContext, setFailureContext] = useState<FailureContext | null>(null);
   const [failureHeadline, setFailureHeadline] = useState('');
   const [env, setEnv] = useState<EnvInfo | null>(null);
+ const [backupCount, setBackupCount] = useState(0);
   const [envDismissed, setEnvDismissed] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>('system');
   const [accent, setAccent] = useState<AccentColor>('neutral');
@@ -154,6 +165,16 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // 侧栏需要备份条数做徽标；失败不影响主流程
+  const loadBackupCount = useCallback(async () => {
+    try {
+      const list = await fetchBackups();
+      setBackupCount(Array.isArray(list) ? list.length : 0);
+    } catch {
+      setBackupCount(0);
+    }
+  }, []);
+
   // 启动：先按缓存上色（避免闪白），再从服务端同步权威外观
   useEffect(() => {
     const cached = applyCachedTheme();
@@ -186,6 +207,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadGames();
     loadEnv();
+    loadBackupCount();
   }, []);
 
  // Shared migration confirm — unified across all three migration entry points.
@@ -363,6 +385,10 @@ export const App: React.FC = () => {
         onRefresh={loadGames}
         isRefreshing={loadingGames}
         detectedBothCount={detectedBothCount}
+        gameCount={games.length}
+        libraryCount={games.filter(g => g.isXboxDetected || g.isXboxInstalled).length}
+        backupCount={backupCount}
+        onAddCustomGame={() => setShowCustomGameModal(true)}
         themeMode={themeMode}
         onCycleTheme={() => {
           const next: ThemeMode = themeMode === 'system' ? 'light' : themeMode === 'light' ? 'dark' : 'system';
@@ -373,7 +399,21 @@ export const App: React.FC = () => {
         }}
       />
 
-      <main className="flex-1 min-w-0 p-6 pb-32 max-w-[1400px] mx-auto w-full">
+      <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
+      <TopBar
+        activeTab={activeTab}
+        onRefresh={loadGames}
+        isRefreshing={loadingGames}
+        onOpenLog={() => setLogVisible(true)}
+        logCount={logs.length}
+      />
+      <main className="flex-1 min-w-0 overflow-y-auto pb-32">
+      <div className="max-w-[1100px] mx-auto w-full px-12 pt-10 pb-24">
+        {/* Notion 页面标题：大字号 + 一行说明，位于正文顶部 */}
+        <div className="mb-8">
+          <h1 className="t-page-title">{PAGE_META[activeTab].title}</h1>
+          <p className="t-meta mt-1.5">{PAGE_META[activeTab].desc}</p>
+        </div>
         {env && !envDismissed && (
           <EnvBanner
             env={env}
@@ -443,7 +483,7 @@ export const App: React.FC = () => {
  <div className="flex items-center justify-between gap-3 flex-wrap">
  <button
  onClick={() => setShowCustomGameModal(true)}
- className="flex items-center gap-2 px-4 py-2 text-[12px] font-bold rounded-card bg-ink-elevated hover:bg-ink-raised border border-ink-border text-ink-text transition-colors"
+ className="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold rounded-card bg-ink-elevated hover:bg-ink-hover border border-ink-border text-ink-text transition-colors"
  >
  <Plus className="w-4 h-4" />
  <span>添加自定义游戏</span>
@@ -451,7 +491,7 @@ export const App: React.FC = () => {
 
  <button
  onClick={() => setAdvancedOpen(!advancedOpen)}
- className="flex items-center gap-2 px-4 py-2 text-[12px] font-bold rounded-card bg-ink-elevated hover:bg-ink-raised border border-ink-border text-ink-text transition-colors"
+ className="flex items-center gap-2 px-4 py-2 text-[12px] font-semibold rounded-card bg-ink-elevated hover:bg-ink-hover border border-ink-border text-ink-text transition-colors"
  >
  <Wrench className="w-4 h-4" />
  <span>高级 WGS 工具</span>
@@ -487,7 +527,9 @@ export const App: React.FC = () => {
             }}
           />
         )}
+      </div>
       </main>
+      </div>
 
  <SaveComparisonModal
  game={selectedGame}

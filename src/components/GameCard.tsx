@@ -52,7 +52,7 @@ const SideColumn: React.FC<{
       <span className="t-mono shrink-0" title={fullDate(lastModified || null)}>{formatDate(lastModified || null)}</span>
     </div>
     <div className="flex items-center gap-1 min-w-0">
-      <span className="t-mono truncate" title={path || ''}>
+      <span className="t-mono truncate leading-5" title={path || ''}>
         {detected ? path : emptyText}
       </span>
       {detected && onOpen && (
@@ -123,8 +123,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
           onClick={() => onQuickMigrate(game, dir)}
           disabled={!enabled || isMigrating}
           title={title}
-          className={`flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium rounded-btn text-ink-base transition-colors disabled:opacity-30 disabled:pointer-events-none ${
-            dir === 'xbox_to_steam' ? 'bg-ink-xbox-to-steam hover:bg-emerald-400' : 'bg-ink-steam-to-xbox hover:bg-sky-400'
+          className={`flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium rounded-[4px] text-white transition-colors disabled:opacity-30 disabled:pointer-events-none ${
+            dir === 'xbox_to_steam' ? 'bg-ink-xbox-to-steam hover:opacity-90' : 'bg-ink-steam-to-xbox hover:opacity-90'
           }`}
         >
           <Icon className="w-3 h-3" />
@@ -138,7 +138,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
         onClick={() => onQuickMigrate(game, dir)}
         disabled={!enabled || isMigrating}
         title={title}
-        className="flex items-center gap-1 px-2 py-1 text-[12px] text-ink-muted hover:text-ink-text rounded-btn transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        className="flex items-center gap-1 px-2 py-1 text-[12px] text-ink-muted hover:bg-ink-hover hover:text-ink-text rounded-[4px] transition-colors disabled:opacity-30 disabled:pointer-events-none"
       >
         <Icon className="w-3 h-3" />
         {label}
@@ -147,12 +147,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
   };
 
   return (
-    <div className={`px-3 py-2.5 transition-colors hover:bg-ink-elevated/30 ${hasSaves ? '' : 'opacity-50'}`}>
+    <div className={`px-4 py-3 transition-colors hover:bg-ink-hover ${hasSaves ? '' : 'opacity-60'}`}>
       <div className="flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-4">
 
         {/* 身份列 */}
         <div className="flex items-center gap-2.5 min-w-0 xl:w-56 xl:shrink-0">
-          <div className="w-7 h-7 rounded-btn shrink-0 overflow-hidden border border-ink-border bg-ink-base flex items-center justify-center">
+          <div className="w-8 h-8 rounded-[5px] shrink-0 overflow-hidden border border-ink-border bg-ink-base flex items-center justify-center">
             {game.iconUrl && !iconFailed ? (
               <img
                 src={game.iconUrl}
@@ -166,11 +166,11 @@ export const GameCard: React.FC<GameCardProps> = ({ game, onInspectGame, onQuick
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-[13px] text-ink-text truncate" title={game.name}>
+              <span className="text-[14px] font-medium text-ink-text truncate" title={game.name}>
                 {game.name}
               </span>
               {game.isXboxInstalled && (
-                <span className="text-[11px] text-ink-accent shrink-0" title="来自 Xbox 游戏库：已安装，尚未检测到存档">
+                <span className="badge bg-ink-accent-soft text-ink-accent shrink-0" title="来自 Xbox 游戏库：已安装，尚未检测到存档">
                   已安装
                 </span>
               )}

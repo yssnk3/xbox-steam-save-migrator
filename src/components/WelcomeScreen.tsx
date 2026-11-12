@@ -29,11 +29,11 @@ const TIPS = [
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onDismiss }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,15,15,0.55)] p-4">
       <div className="glass-panel w-full max-w-lg relative">
         <button
           onClick={onDismiss}
-          className="absolute top-3 right-3 p-1.5 rounded-btn text-ink-faint hover:text-ink-text hover:bg-ink-elevated transition-colors"
+          className="absolute top-3 right-3 p-1.5 rounded-btn text-ink-faint hover:text-ink-text hover:bg-ink-hover transition-colors"
           aria-label="关闭"
         >
           <X className="w-4 h-4" />
@@ -50,7 +50,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onDismiss }) => {
               <li key={s.title} className="flex gap-3">
                 <span className="t-mono shrink-0 pt-0.5">{i + 1}.</span>
                 <div>
-                  <div className="text-[13px] text-ink-text">{s.title}</div>
+                  <div className="text-[14px] text-ink-text">{s.title}</div>
                   <div className="t-meta mt-0.5">{s.body}</div>
                 </div>
               </li>
@@ -71,7 +71,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onDismiss }) => {
         </div>
 
         <div className="px-6 pb-6">
-          <button onClick={onDismiss} className="btn-primary w-full py-2 text-[13px]">
+          <button onClick={onDismiss} className="btn-primary w-full py-2 text-[14px]">
             开始使用
           </button>
         </div>

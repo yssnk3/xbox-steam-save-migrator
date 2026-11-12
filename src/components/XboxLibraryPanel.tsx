@@ -202,26 +202,18 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  });
 
  return (
- <div className="panel p-6 space-y-6">
-      {/* 标题区 */}
-      <div>
-        <h2 className="t-title">Xbox 游戏库</h2>
-        <p className="t-meta mt-0.5">
-          扫描已安装的 Game Pass 游戏，可直接启动，并在此切断云同步
-        </p>
-      </div>
-
- {/* 云存档同步区 */}
- <div className="pt-4 border-t border-ink-borderSoft space-y-3">
- <div className="flex items-center justify-between gap-3">
+    <div className="space-y-4">
+      {/* 云存档同步区（页面大标题已在上方，此处不再重复标题） */}
+      <div className="panel p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
  <div className="flex items-center gap-2">
  <CloudOff className="w-3.5 h-3.5 text-ink-muted" />
- <h3 className="text-[13px] font-medium text-ink-text">云存档同步控制</h3>
+ <h3 className="text-[14px] font-medium text-ink-text">云存档同步控制</h3>
  </div>
  <button
  onClick={handleStopCloudSync}
  disabled={stopping}
- className="px-3 py-1.5 text-[12px] font-medium bg-ink-solid hover:bg-ink-solid-hover text-ink-base rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+ className="px-3 py-1.5 text-[13px] btn-primary disabled:opacity-40 flex items-center gap-1.5"
  >
  {stopping ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CloudOff className="w-3 h-3" />}
  {stopping ? '执行中...' : '停止云同步'}
@@ -231,12 +223,12 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
           关闭 Xbox 应用与后台组件并尝试停止 GamingServices，防止移植后被云端旧档覆盖
         </p>
  {stopResult && (
- <div className="text-[11px] font-mono text-ink-muted pl-3 border-l border-ink-border space-y-1">
+ <div className="text-[12px] font-mono text-ink-muted pl-3 border-l border-ink-border space-y-1">
  <div>· Xbox 应用：{stopResult.xboxAppClosed ? `已关闭（${stopResult.xboxAppStillRunning.length === 0 ? '无残留' : `仍有 ${stopResult.xboxAppStillRunning.join(', ')}`}` : '未在运行'}</div>
  <div>· XboxPcAppFT：{stopResult.ftKilled ? '已击杀（会被系统自动复活，属预期）' : '未在运行'}</div>
  <div>· GamingServices：{stopResult.servicesStopped.length > 0 ? `已停止 ${stopResult.servicesStopped.join(', ')}` : stopResult.servicesFailed.length > 0 ? `停止失败（需管理员权限）：${stopResult.servicesFailed.join(', ')}` : '无需处理'}</div>
  {stopResult.gamesRunning.length > 0 && (
- <div className="text-orange-400">· 仍有游戏进程运行：{stopResult.gamesRunning.join(', ')}——其云会话仍然存活，请先退出游戏</div>
+ <div className="text-ink-warning">· 仍有游戏进程运行：{stopResult.gamesRunning.join(', ')}——其云会话仍然存活，请先退出游戏</div>
  )}
  {stopResult.hints.map((h, i) => <div key={i} className="text-ink-muted">· {h}</div>)}
  </div>
@@ -249,7 +241,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  <button
  onClick={() => scan(true)}
  disabled={scanning}
- className="px-3 py-1.5 text-[12px] font-medium bg-ink-solid hover:bg-ink-solid-hover text-ink-base rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+ className="px-3 py-1.5 text-[13px] btn-primary disabled:opacity-40 flex items-center gap-1.5"
  >
  {scanning ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
  {scanning ? '扫描中...' : scanned ? '重新扫描' : '扫描已安装游戏'}
@@ -260,7 +252,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  value={query}
  onChange={e => setQuery(e.target.value)}
  placeholder="搜索游戏名或包名..."
- className="w-full pl-7 pr-2 py-1.5 text-[12px] border border-ink-border rounded-btn focus:outline-none focus:border-ink-faint bg-ink-surface"
+ className="w-full pl-7 pr-2 py-1.5 text-[13px] border border-ink-border rounded-btn hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)] bg-ink-base text-ink-text placeholder:text-ink-faint"
  />
  </div>
  <label className="flex items-center gap-1.5 text-[12px] text-ink-muted cursor-pointer select-none">
@@ -268,60 +260,60 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  type="checkbox"
  checked={showAll}
  onChange={e => setShowAll(e.target.checked)}
- className="w-3 h-3 accent-gray-900"
+ className="w-3.5 h-3.5 accent-[color:var(--ink-accent)]"
  />
  显示全部应用
  </label>
  </div>
 
  {!scanned && !scanning && (
- <p className="text-[12px] text-ink-faint py-6 text-center">点击上方按钮扫描本机已安装的 Game Pass 游戏</p>
+ <p className="t-meta py-8 text-center">点击上方按钮扫描本机已安装的 Game Pass 游戏</p>
  )}
  {scanned && filtered.length === 0 && !scanning && (
- <p className="text-[12px] text-ink-faint py-6 text-center">没有匹配的结果</p>
+ <p className="t-meta py-8 text-center">没有匹配的结果</p>
  )}
 
- <div className="divide-y divide-ink-border">
+ <div className="panel divide-y divide-ink-borderSoft overflow-hidden">
  {filtered.map(game => {
  const upload = uploadStates[game.pfn] || 'idle';
  const isUploading = upload === 'starting' || upload === 'monitoring';
  return (
- <div key={game.pfn} className="flex items-center gap-3 py-2.5">
- <div className="w-8 h-8 rounded border border-ink-border bg-ink-elevated flex items-center justify-center overflow-hidden shrink-0">
+ <div key={game.pfn} className="flex items-center gap-3 px-4 py-2.5 hover:bg-ink-hover transition-colors">
+ <div className="w-7 h-7 rounded-[4px] border border-ink-borderSoft bg-ink-elevated flex items-center justify-center overflow-hidden shrink-0">
  <img
  src={`${API_BASE}/api/xbox-icon/${encodeURIComponent(game.pfn)}`}
  alt=""
- className="w-8 h-8 object-contain"
+ className="w-7 h-7 object-contain"
  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
  />
  </div>
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
- <span className="text-[13px] font-medium text-ink-text truncate">{game.displayName}</span>
+ <span className="text-[14px] text-ink-text truncate">{game.displayName}</span>
  {game.hasWgs && (
- <span className="px-1.5 py-0.5 text-[11px] font-medium rounded text-emerald-400 shrink-0">有存档</span>
+ <span className="badge bg-ink-success-soft text-ink-success shrink-0">有存档</span>
  )}
  {running[game.pfn] && (
- <span className="flex items-center gap-1 text-[11px] text-emerald-400 shrink-0">
- <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+ <span className="flex items-center gap-1 text-[11px] text-ink-success shrink-0">
+ <span className="w-1.5 h-1.5 rounded-full bg-ink-success" />
  运行中
  </span>
  )}
  {isUploading && (
- <span className="flex items-center gap-1 text-[11px] text-blue-400 shrink-0">
+ <span className="flex items-center gap-1 text-[12px] text-ink-accent shrink-0">
  <Loader2 className="w-2.5 h-2.5 animate-spin" />
  {upload === 'starting' ? '启动中...' : '同步监控中——退出游戏后自动确认'}
  </span>
  )}
  </div>
- <div className="text-[11px] font-mono text-ink-faint truncate">{game.pfn}</div>
+ <div className="text-[12px] font-mono text-ink-faint truncate">{game.pfn}</div>
  </div>
  <div className="flex items-center gap-1.5 shrink-0">
  <button
  onClick={() => handleUploadCloud(game)}
  disabled={isUploading || launching === game.pfn}
  title="启动游戏触发云同步上传，退出后完成"
- className="px-2.5 py-1.5 text-[11px] font-medium text-ink-muted hover:text-ink-text bg-ink-surface hover:bg-ink-elevated rounded-btn border border-ink-border transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
+ className="px-2.5 py-1 text-[12px] btn-ghost disabled:opacity-40 flex items-center gap-1"
  >
  <CloudUpload className="w-3 h-3" />
  上传云存档
@@ -330,7 +322,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({ onAddLog }) => {
  onClick={() => handleLaunch(game)}
  disabled={launching === game.pfn || isUploading}
  title="绕过 Xbox 客户端直接启动"
- className="px-2.5 py-1.5 text-[11px] font-medium bg-ink-solid hover:bg-ink-solid-hover text-ink-base rounded-btn transition-colors disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1"
+ className="px-2.5 py-1 text-[12px] btn-primary disabled:opacity-40 flex items-center gap-1"
  >
  {launching === game.pfn
  ? <RefreshCw className="w-3 h-3 animate-spin" />

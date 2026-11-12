@@ -13,20 +13,20 @@ export interface AppearanceSettings {
   accent: AccentColor;
 }
 
-export const DEFAULT_APPEARANCE: AppearanceSettings = { theme: 'system', accent: 'neutral' };
+export const DEFAULT_APPEARANCE: AppearanceSettings = { theme: 'system', accent: 'blue' };
 
 export const ACCENT_OPTIONS: { value: AccentColor; label: string; swatch: string }[] = [
-  { value: 'neutral', label: '中性', swatch: '#8B8FA3' },
-  { value: 'blue', label: '蓝', swatch: '#3B82F6' },
-  { value: 'green', label: '绿', swatch: '#10B981' },
-  { value: 'orange', label: '橙', swatch: '#F59E0B' },
-  { value: 'violet', label: '紫', swatch: '#8B5CF6' },
+  { value: 'blue', label: '蓝', swatch: '#2383E2' },
+  { value: 'green', label: '绿', swatch: '#0F7B6C' },
+  { value: 'orange', label: '橙', swatch: '#D9730D' },
+  { value: 'violet', label: '紫', swatch: '#6940A5' },
+  { value: 'neutral', label: '中性', swatch: '#37352F' },
 ];
 
 const CACHE_KEY = 'sxsm-appearance';
 
 function prefersDark(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return true;
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
@@ -57,7 +57,7 @@ export function applyCachedTheme(): AppearanceSettings {
           theme: ['system', 'light', 'dark'].includes(parsed.theme) ? parsed.theme : 'system',
           accent: ['neutral', 'blue', 'green', 'orange', 'violet'].includes(parsed.accent)
             ? parsed.accent
-            : 'neutral',
+            : 'blue',
         };
       }
     }
