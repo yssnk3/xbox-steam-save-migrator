@@ -151,14 +151,37 @@ export interface EnvInfo {
   xbox: { detected: boolean; packagesRoot: string; packageCount: number; override: string };
 }
 
-/** AI 诊断历史条目（列表视图） */
+/** AI 诊断会话中的一轮问答 */
+export interface AiTurn {
+  /** 用户追问；首轮为 null（问题就是"诊断这次失败"） */
+  question: string | null;
+  answer: string;
+  model: string | null;
+  at: string;
+}
+
+/** AI 诊断会话（一次失败 + 多轮问答） */
+export interface AiSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  pinned: boolean;
+  context: FailureContext;
+  turns: AiTurn[];
+}
+
+/** AI 诊断会话列表条目（精简版） */
 export interface AiHistoryItem {
   id: string;
+  title: string;
   createdAt: string;
+  updatedAt: string;
+  pinned: boolean;
   gameName: string | null;
   direction: string | null;
   code: string | null;
-  question: string | null;
+  turnCount: number;
   answerPreview: string;
   model: string | null;
 }
@@ -174,6 +197,8 @@ export interface AppSettings {
 export interface AiExplanation {
   text: string;
   model: string;
+  /** 服务端落盘后的会话 id（追问时用于续接同一会话） */
+  sessionId?: string | null;
 }
 
 /** Read-only portability prediction for one direction (dry-run, no writes). */

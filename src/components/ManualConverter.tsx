@@ -77,27 +77,27 @@ export const ManualConverter: React.FC<ManualConverterProps> = ({ onAddLog }) =>
  );
 
  return (
- <div className="space-y-6">
- 
+ <div className="panel p-5 space-y-5">
+
  {/* Description */}
- <div className="flex items-center gap-3">
- <div className="w-8 h-8 rounded-[5px] bg-ink-elevated border border-ink-border flex items-center justify-center text-ink-muted">
- <Cpu className="w-6 h-6" />
+ <div className="flex items-start gap-3">
+ <div className="w-7 h-7 rounded-[5px] bg-ink-elevated border border-ink-border flex items-center justify-center text-ink-muted shrink-0">
+ <Cpu className="w-3.5 h-3.5" />
  </div>
- <div>
- <h2 className="font-semibold text-[15px] text-ink-text">高级 WGS 工具：容器解包与打包</h2>
- <p className="text-[12px] text-ink-muted">
+ <div className="min-w-0">
+ <h2 className="text-[14px] font-medium text-ink-text leading-tight">容器解包与打包</h2>
+ <p className="text-[12px] text-ink-muted mt-1">
  对于未包含在预设数据库中的游戏，直接指定 WGS 目录路径进行通用解包与结构重写。点击"浏览"按钮选择目录，无需手敲路径。
  </p>
  </div>
  </div>
 
  {/* Grid containing Extract and Pack panels */}
- <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
  
  {/* WGS Extract Panel */}
- <div className="panel p-4 space-y-3">
- <div className="flex items-center gap-2 text-[14px] font-medium text-ink-text border-b border-ink-borderSoft pb-2.5">
+ <div className="space-y-3">
+ <div className="flex items-center gap-2 text-[13px] font-medium text-ink-text border-b border-ink-borderSoft pb-2.5">
  <ArrowDown className="w-4 h-4" />
  <span>解包模式 (WGS → 普通存档文件)</span>
  </div>
@@ -111,7 +111,7 @@ export const ManualConverter: React.FC<ManualConverterProps> = ({ onAddLog }) =>
  placeholder="点击右侧浏览按钮选择目录..."
  value={extractWgsPath}
  onChange={e => setExtractWgsPath(e.target.value)}
- className="flex-1 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
+ className="flex-1 min-w-0 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
  />
  <FolderPickButton onClick={() => handlePickFolder(setExtractWgsPath)} />
  </div>
@@ -125,7 +125,7 @@ export const ManualConverter: React.FC<ManualConverterProps> = ({ onAddLog }) =>
  placeholder="点击右侧浏览按钮选择目录..."
  value={extractOutputPath}
  onChange={e => setExtractOutputPath(e.target.value)}
- className="flex-1 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
+ className="flex-1 min-w-0 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
  />
  <FolderPickButton onClick={() => handlePickFolder(setExtractOutputPath)} />
  </div>
@@ -143,8 +143,8 @@ export const ManualConverter: React.FC<ManualConverterProps> = ({ onAddLog }) =>
  </div>
 
  {/* WGS Pack Panel */}
- <div className="panel p-4 space-y-3">
- <div className="flex items-center gap-2 text-[14px] font-medium text-ink-text border-b border-ink-borderSoft pb-2.5">
+ <div className="space-y-3">
+ <div className="flex items-center gap-2 text-[13px] font-medium text-ink-text border-b border-ink-borderSoft pb-2.5">
  <ArrowUp className="w-4 h-4" />
  <span>打包模式 (普通存档文件 → Xbox WGS 格式)</span>
  </div>
@@ -158,7 +158,7 @@ export const ManualConverter: React.FC<ManualConverterProps> = ({ onAddLog }) =>
  placeholder="点击右侧浏览按钮选择存档目录..."
  value={packInputPath}
  onChange={e => setPackInputPath(e.target.value)}
- className="flex-1 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
+ className="flex-1 min-w-0 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
  />
  <FolderPickButton onClick={() => handlePickFolder(setPackInputPath)} />
  </div>
@@ -172,7 +172,7 @@ export const ManualConverter: React.FC<ManualConverterProps> = ({ onAddLog }) =>
  placeholder="点击右侧浏览按钮选择目标目录..."
  value={packTargetWgsPath}
  onChange={e => setPackTargetWgsPath(e.target.value)}
- className="flex-1 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
+ className="flex-1 min-w-0 bg-ink-base border border-ink-border rounded-btn px-3 py-2 font-mono text-[11px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)]"
  />
  <FolderPickButton onClick={() => handlePickFolder(setPackTargetWgsPath)} />
  </div>

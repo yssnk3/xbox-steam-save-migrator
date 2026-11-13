@@ -1,4 +1,4 @@
-import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult, FailureContext, AppSettings, AiExplanation, AppearanceSettings, EnvInfo, AiHistoryItem } from '../types';
+import { GameItem, BackupItem, VerifyReport, IdentifiedInfo, PortabilityReport, XboxInstalledGame, XboxCloudSyncStopResult, FailureContext, AppSettings, AiExplanation, AppearanceSettings, EnvInfo, AiHistoryItem, AiSession } from '../types';
 
 const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:'
   ? 'http://localhost:3001'
@@ -348,12 +348,14 @@ export async function explainFailureApi(
   options: {
     messages?: { role: 'user' | 'assistant'; content: string }[];
     logs?: { type?: string; message: string }[];
+    /** 续接已有会话：给了就把本轮追加到该会话 */
+    sessionId?: string | null;
   } = {},
 ): Promise<AiExplanation> {
   return apiFetch('/api/ai/explain-failure', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context, messages: options.messages, logs: options.logs }),
+    body: JSON.stringify({ context, messages: options.messages, logs: options.logs, sessionId: options.sessionId }),
   });
 }
 
@@ -363,14 +365,34 @@ export async function fetchEnv(): Promise<{ env: EnvInfo }> {
   return apiFetch('/api/env');
 }
 
-// ===== AI 诊断历史 =====
+// ===== AI 诊断会话 =====
 
 export async function fetchAiHistory(): Promise<{ history: AiHistoryItem[] }> {
   return apiFetch('/api/ai/history');
 }
 
-export async function fetchAiHistoryEntry(id: string): Promise<{ entry: { id: string; answer: string; question: string | null; createdAt: string; gameName: string | null; code: string | null; model: string | null } }> {
+export async function fetchAiHistoryEntry(id: string): Promise<{ entry: AiSession }> {
   return apiFetch(`/api/ai/history/${encodeURIComponent(id)}`);
+}
+
+/** 重命名 / 置顶会话 */
+export async function updateAiSession(
+  id: string,
+  patch: { title?: string; pinned?: boolean },
+): Promise<{ session: AiSession }> {
+  return apiFetch(`/api/ai/history/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+/** 导出会话为 Markdown（返回文件名与内容，不落盘） */
+export async function exportAiSession(id: string): Promise<{ filename: string; markdown: string }> {
+  const res = await fetch(`${API_BASE}/api/ai/history/${encodeURIComponent(id)}/export`);
+  if (!res.ok) throw new Error(`导出失败（HTTP ${res.status}）`);
+  const markdown = await res.text();
+  return { filename: `ai-session-${id}.md`, markdown };
 }
 
 export async function deleteAiHistoryApi(id: string): Promise<{ success: boolean }> {

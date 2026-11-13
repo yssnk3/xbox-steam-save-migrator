@@ -586,7 +586,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  value={value}
  onChange={e => setter(e.target.value)}
  placeholder={placeholder}
- className="flex-1 bg-ink-base border border-ink-border rounded-btn px-3 py-2.5 font-mono text-[12px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)] placeholder:text-ink-faint transition-colors"
+ className="flex-1 min-w-0 bg-ink-base border border-ink-border rounded-btn px-3 py-2.5 font-mono text-[12px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)] placeholder:text-ink-faint transition-colors"
  />
  <div className="flex gap-1.5 shrink-0">
  <button
@@ -641,7 +641,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  value={sourcePath}
  onChange={e => setSourcePath(e.target.value)}
  placeholder="粘贴路径，或点击右侧按钮选择 Steam 存档目录 / Xbox WGS 目录"
- className="flex-1 bg-ink-base border border-ink-border rounded-btn px-3 py-2.5 font-mono text-[12px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)] placeholder:text-ink-faint transition-colors"
+ className="flex-1 min-w-0 bg-ink-base border border-ink-border rounded-btn px-3 py-2.5 font-mono text-[12px] text-ink-text hover:border-ink-faint focus:outline-none focus:border-ink-accent focus:shadow-[0_0_0_2px_var(--ink-accent-soft)] placeholder:text-ink-faint transition-colors"
  />
  <button
  onClick={() => handlePickFile(setSourcePath)}
@@ -918,7 +918,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  <span className="w-4 h-4 rounded-full bg-ink-active text-ink-muted flex items-center justify-center text-[11px] font-semibold border border-ink-borderSoft">3</span>
  手动指定双端路径（识别结果会自动填入，可修改）
  </div>
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
  <PathInput
  label="Steam 存档目录"
  value={steamPath}

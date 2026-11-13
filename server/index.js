@@ -19,7 +19,7 @@ import { scanGamesWithXboxLibrary } from './gameLibrary.js';
 import { getPublicSettings, writeSettings, readSettings } from './settingsStore.js';
 import { getSteamEnvironment } from './steamLocator.js';
 import { explainFailure, testAiConnection, AiError } from './aiAssistant.js';
-import { listAiHistory, getAiHistoryEntry, appendAiHistory, deleteAiHistory, clearAiHistory } from './aiHistoryStore.js';
+import { listAiHistory, getAiHistoryEntry, appendAiHistory, updateAiHistory, deleteAiHistory, clearAiHistory, exportAiSessionMarkdown } from './aiHistoryStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -279,7 +279,7 @@ function applySteamFileNameNormalization(extracted, targetDir, game) {
 }
 
 const app = express();
-const PORT = 3001;
+const PORT = Number(process.env.SXSM_PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -1125,37 +1125,44 @@ app.post('/api/settings/test-ai', async (req, res) => {
 });
 
 // API: AI 失败诊断 — 用户手动触发，输入是一次移植失败的现场上下文。
+// 带 sessionId 时追加到该会话；不带时新建会话。
 app.post('/api/ai/explain-failure', async (req, res) => {
   try {
     const context = req.body?.context || {};
     const messages = req.body?.messages;
     const logs = req.body?.logs;
+    const sessionIdReq = req.body?.sessionId || null;
     const result = await explainFailure(context, { messages, logs });
 
-    // 首轮（无历史）才落一条历史记录，追问不重复记
-    if (!Array.isArray(messages) || messages.length === 0) {
-      try {
-        appendAiHistory({
-          gameName: context.gameName || null,
-          direction: context.direction || null,
-          code: context.code || null,
-          question: context.error || null,
+    // 落盘：带 sessionId 追加轮次；否则新建会话（旧行为：只记首轮）
+    let sessionId = null;
+    try {
+      const isFollowUp = Array.isArray(messages) && messages.length > 0;
+      const lastUserMsg = isFollowUp
+        ? [...messages].reverse().find(m => m?.role === 'user')?.content
+        : null;
+      if (sessionIdReq || !isFollowUp) {
+        const session = appendAiHistory({
+          sessionId: sessionIdReq,
+          context,
+          question: lastUserMsg || null,
           answer: result.text,
           model: result.model,
         });
-      } catch {
-        // 历史写入失败不影响本次回答
+        sessionId = session?.id || null;
       }
+    } catch {
+      // 历史写入失败不影响本次回答
     }
 
-    res.json({ success: true, ...result });
+    res.json({ success: true, ...result, sessionId });
   } catch (err) {
     const code = err instanceof AiError ? err.code : 'AI_UNKNOWN';
     res.status(400).json({ success: false, error: err.message || friendlyError(err), code });
   }
 });
 
-// API: AI 诊断历史
+// API: AI 诊断会话列表
 app.get('/api/ai/history', (req, res) => {
   try {
     res.json({ success: true, history: listAiHistory() });
@@ -1169,6 +1176,31 @@ app.get('/api/ai/history/:id', (req, res) => {
     const entry = getAiHistoryEntry(req.params.id);
     if (!entry) return res.status(404).json({ success: false, error: '记录不存在' });
     res.json({ success: true, entry });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// 重命名 / 置顶
+app.patch('/api/ai/history/:id', (req, res) => {
+  try {
+    const session = updateAiHistory(req.params.id, req.body || {});
+    if (!session) return res.status(404).json({ success: false, error: '记录不存在' });
+    res.json({ success: true, session });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// 导出 Markdown
+app.get('/api/ai/history/:id/export', (req, res) => {
+  try {
+    const session = getAiHistoryEntry(req.params.id);
+    if (!session) return res.status(404).json({ success: false, error: '记录不存在' });
+    const md = exportAiSessionMarkdown(session);
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="ai-session-${session.id}.md"`);
+    res.send(md);
   } catch (err) {
     res.status(500).json({ success: false, error: friendlyError(err) });
   }

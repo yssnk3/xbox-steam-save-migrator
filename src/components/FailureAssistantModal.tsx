@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Sparkles, Loader2, AlertTriangle, RefreshCw, Settings as SettingsIcon, ChevronRight, FileWarning } from 'lucide-react';
-import { FailureContext, AiExplanation, AiHistoryItem } from '../types';
+import { X, Sparkles, Loader2, AlertTriangle, RefreshCw, Settings as SettingsIcon, FileWarning, PanelRightOpen } from 'lucide-react';
+import { FailureContext, AiExplanation, AiHistoryItem, AiTurn } from '../types';
 import { explainFailureApi, fetchSettings, fetchAiHistory, fetchAiHistoryEntry, deleteAiHistoryApi } from '../services/api';
+import { AiConversation } from './AiTurnView';
 import { useToast } from './Toast';
 
 interface FailureAssistantModalProps {
@@ -13,36 +14,9 @@ interface FailureAssistantModalProps {
   onClose: () => void;
   onGotoSettings: () => void;
   onGotoBackups: () => void;
+  /** 把当前对话搬到 AI 面板继续（面板不可用时隐藏该按钮） */
+  onContinueInPanel?: (payload: { context: FailureContext; turns: AiTurn[]; headline: string; sessionId?: string | null }) => void;
 }
-
-/** Turn the three-section plain-text answer into labeled blocks. */
-function parseSections(text: string): { label: string; body: string[] }[] {
-  const lines = text.split(/\r?\n/);
-  const sections: { label: string; body: string[] }[] = [];
-  let current: { label: string; body: string[] } | null = null;
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    const m = /^(原因|可能方案|下一步操作)[：:]\s*(.*)$/.exec(line);
-    if (m) {
-      current = { label: m[1], body: m[2] ? [m[2]] : [] };
-      sections.push(current);
-      continue;
-    }
-    if (!line) continue;
-    if (current) current.body.push(line.replace(/^[-•*]\s*/, ''));
-  }
-
-  // Model didn't follow the format — show the whole thing rather than dropping it.
-  if (sections.length === 0) return [{ label: '分析结果', body: lines.filter(l => l.trim()) }];
-  return sections;
-}
-
-const SECTION_ACCENT: Record<string, string> = {
-  原因: 'text-ink-warning',
-  可能方案: 'text-ink-text',
-  下一步操作: 'text-ink-text',
-};
 
 const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   context,
@@ -51,6 +25,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   onClose,
   onGotoSettings,
   onGotoBackups,
+  onContinueInPanel,
 }) => {
   const toast = useToast();
   // 'ready' = 可直接分析；'disabled' = 有密钥但未启用；'unconfigured' = 没有密钥
@@ -59,10 +34,12 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const [result, setResult] = useState<AiExplanation | null>(null);
   const [error, setError] = useState<string | null>(null);
   // 多轮：每次问答压入，首轮为 null（问题就是诊断这次失败）
-  const [turns, setTurns] = useState<{ question: string | null; answer: string; model: string }[]>([]);
+  const [turns, setTurns] = useState<AiTurn[]>([]);
   const [followUp, setFollowUp] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<AiHistoryItem[]>([]);
+  // 服务端落盘的会话 id —— 搬去 AI 面板时直接续接同一个会话
+  const [sessionId, setSessionId] = useState<string | null>(null);
   // 自动分析只跑一次；用 ref 让上面的 effect 能调用后面定义的 runExplain
   const autoRanRef = useRef(false);
   const runExplainRef = useRef<((question?: string) => Promise<void>) | null>(null);
@@ -107,8 +84,14 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const loadHistoryEntry = async (id: string) => {
     try {
       const { entry } = await fetchAiHistoryEntry(id);
-      setTurns([{ question: entry.question, answer: entry.answer, model: entry.model || '' }]);
-      setResult({ text: entry.answer, model: entry.model || '' });
+      const list: AiTurn[] = (entry.turns || []).map(t => ({
+        question: t.question ?? null,
+        answer: t.answer,
+        model: t.model || '',
+        at: t.at,
+      }));
+      setTurns(list.length ? list : [{ question: null, answer: entry.turns?.[0]?.answer || '', model: entry.turns?.[0]?.model || '', at: entry.createdAt }]);
+      setResult({ text: entry.turns?.[0]?.answer || '', model: entry.turns?.[0]?.model || '' });
       setHistoryOpen(false);
     } catch (e: any) {
       toast(`读取历史失败：${e.message}`, 'error');
@@ -140,8 +123,10 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
       const r = await explainFailureApi(context, {
         messages,
         logs: recentLogs,
+        sessionId,
       });
-      setTurns(prev => [...prev, { question: question || null, answer: r.text, model: r.model }]);
+      if (r.sessionId) setSessionId(r.sessionId);
+      setTurns(prev => [...prev, { question: question || null, answer: r.text, model: r.model, at: new Date().toISOString() }]);
       setResult(r);
       if (question) setFollowUp('');
     } catch (err) {
@@ -301,38 +286,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
             {result && !explaining && (
               <div className="space-y-4">
                 {/* 对话流：每轮一问一答 */}
-                {turns.map((turn, ti) => (
-                  <div key={ti} className="space-y-2">
-                    {turn.question && (
-                      <div className="flex justify-end">
-                        <div className="max-w-[85%] px-3 py-2 rounded-card bg-ink-elevated text-[12px] text-ink-text">
-                          {turn.question}
-                        </div>
-                      </div>
-                    )}
-                    <div className="space-y-3">
-                      {parseSections(turn.answer).map((sec, i) => (
-                        <div key={i}>
-                          <h4 className={`text-[12px] font-medium mb-1.5 ${SECTION_ACCENT[sec.label] || 'text-ink-text'}`}>
-                            {sec.label}
-                          </h4>
-                          {sec.body.length === 1 ? (
-                            <p className="text-[12px] text-ink-text leading-relaxed">{sec.body[0]}</p>
-                          ) : (
-                            <ul className="space-y-1">
-                              {sec.body.map((b, j) => (
-                                <li key={j} className="text-[12px] text-ink-text leading-relaxed flex gap-2">
-                                  <ChevronRight className="w-3 h-3 text-ink-faint mt-1 shrink-0" />
-                                  <span>{b}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                <AiConversation turns={turns} />
 
                 {/* 追问输入 */}
                 <div className="pt-2 border-t border-ink-borderSoft">
@@ -359,6 +313,16 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                   <div className="flex items-center justify-between mt-2">
                     <span className="t-mono">模型：{turns[turns.length - 1]?.model || result.model}</span>
                     <div className="flex items-center gap-3">
+                      {onContinueInPanel && turns.length > 0 && (
+                        <button
+                          onClick={() => onContinueInPanel({ context, turns, headline, sessionId })}
+                          className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1"
+                          title="把这次诊断搬到 AI 面板继续追问"
+                        >
+                          <PanelRightOpen className="w-3 h-3" />
+                          在 AI 面板继续
+                        </button>
+                      )}
                       <button onClick={openHistory} className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">
                         <HistoryIcon />
                         历史
@@ -392,7 +356,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="text-[12px] text-ink-text truncate">
-                              {h.gameName || '未识别游戏'}
+                              {h.title || h.gameName || '未识别游戏'}
                               {h.code ? ` · ${h.code}` : ''}
                             </div>
                             <div className="t-meta truncate">{h.answerPreview}</div>

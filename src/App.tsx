@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { GameItem, LogEntry, FailureContext, EnvInfo, XboxInstalledGame } from './types';
+import { GameItem, LogEntry, FailureContext, EnvInfo, XboxInstalledGame, AiTurn } from './types';
 import { fetchGames, fetchBackups, fetchXboxLibrary, migrateSave, inspectSave, pickFolder } from './services/api';
 import { migrationOutcome, outcomeText } from './utils/migrationOutcome';
 import { buildFailureContext } from './utils/failureContext';
@@ -17,6 +17,7 @@ import { BackupManager } from './components/BackupManager';
 import XboxLibraryPanel from './components/XboxLibraryPanel';
 import SettingsPanel from './components/SettingsPanel';
 import { ManualConverter } from './components/ManualConverter';
+import { AiPanel } from './components/AiPanel';
 import { IdentifyMigratePanel } from './components/IdentifyMigratePanel';
 import { LogConsole } from './components/LogConsole';
 import { CustomGameModal } from './components/CustomGameModal';
@@ -59,8 +60,17 @@ export const App: React.FC = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTarget, setSearchTarget] = useState<{ tab: TabKey; key: string } | null>(null);
   const [envDismissed, setEnvDismissed] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
-  const [accent, setAccent] = useState<AccentColor>('neutral');
+ const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+ const [accent, setAccent] = useState<AccentColor>('neutral');
+
+ // AI 面板：第二列。默认折叠（44px 竖条），展开宽度记 localStorage。
+ const [aiPanelOpen, setAiPanelOpen] = useState(() => localStorage.getItem('sxsm.aiPanel') === 'open');
+ const [aiPanelWidth, setAiPanelWidth] = useState(() => {
+   const v = Number(localStorage.getItem('sxsm.aiPanelWidth'));
+   return Number.isFinite(v) && v >= 200 && v <= 420 ? v : 300;
+ });
+ const [aiPending, setAiPending] = useState<{ context: FailureContext; turns: AiTurn[]; headline: string; sessionId?: string | null } | null>(null);
+
 
  // Confirm dialog state
  const [confirmConfig, setConfirmConfig] = useState<ConfirmDialogConfig | null>(null);
@@ -455,6 +465,23 @@ export const App: React.FC = () => {
         }}
       />
 
+      <AiPanel
+        pendingSession={aiPending}
+        onPendingConsumed={() => setAiPending(null)}
+        expanded={aiPanelOpen}
+        onToggle={() => {
+          setAiPanelOpen(prev => {
+            localStorage.setItem('sxsm.aiPanel', prev ? 'collapsed' : 'open');
+            return !prev;
+          });
+        }}
+        width={aiPanelWidth}
+        onWidthChange={w => {
+          setAiPanelWidth(w);
+          localStorage.setItem('sxsm.aiPanelWidth', String(w));
+        }}
+      />
+
       <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
       <TopBar
         activeTab={activeTab}
@@ -535,6 +562,13 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {/* 高级 WGS 工具内容：紧跟入口按钮展开，避免被推到页面末尾导致"点了没反应" */}
+        {advancedOpen && (
+          <div className="mb-5">
+            <ManualConverter onAddLog={addLog} />
+          </div>
+        )}
+
         {/* Primary entry: pick a save folder → identify → one-click migrate */}
         <IdentifyMigratePanel
  onAddLog={addLog}
@@ -577,14 +611,8 @@ export const App: React.FC = () => {
           />
  </div>
 
-        {/* 高级 WGS 工具内容（入口已在页面顶部） */}
-        {activeTab === 'games' && advancedOpen && (
-          <div className="mt-6">
-            <ManualConverter onAddLog={addLog} />
-          </div>
-        )}
- </>
- ) : activeTab === 'backups' ? (
+        </>
+      ) : activeTab === 'backups' ? (
  <BackupManager onAddLog={addLog} />
  ) : activeTab === 'xbox' ? (
           <XboxLibraryPanel
@@ -646,6 +674,12 @@ export const App: React.FC = () => {
           onClose={() => setFailureContext(null)}
           onGotoSettings={() => { setFailureContext(null); setActiveTab('settings'); }}
           onGotoBackups={() => { setFailureContext(null); setActiveTab('backups'); }}
+          onContinueInPanel={(payload) => {
+            setAiPending(payload);
+            setAiPanelOpen(true);
+            localStorage.setItem('sxsm.aiPanel', 'open');
+            setFailureContext(null);
+          }}
         />
       )}
 
