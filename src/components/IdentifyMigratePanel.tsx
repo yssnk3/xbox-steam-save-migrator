@@ -16,7 +16,16 @@ interface IdentifyMigratePanelProps {
   /** Optional: open the read-only portability test (预演) for the identified game. */
   onPreviewGame?: (gameId: string) => void;
   /** Optional: surface a failure so App can offer AI diagnosis. */
-  onFailure?: (ctx: { error?: unknown; verify?: unknown; message?: string; direction?: string }) => void;
+  onFailure?: (ctx: {
+    error?: unknown;
+    verify?: unknown;
+    message?: string;
+    direction?: string;
+    /** 游戏名，让 AI 知道是哪款游戏出的问题 */
+    gameName?: string | null;
+    /** 后端错误码（PLATFORM_RUNNING / BYTE_INCOMPATIBLE 等） */
+    code?: string | null;
+  }) => void;
 }
 
 interface IdentifyResult {
@@ -363,7 +372,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
       } else {
         onAddLog(`[移植校验失败] ${res.message}`, 'error');
         toast(outcomeText(outcome, topMatch?.name, res.verify), 'error');
-        onFailure?.({ verify: res.verify, message: res.message, direction: chosen });
+        onFailure?.({ verify: res.verify, message: res.message, direction: chosen, gameName: topMatch?.name ?? null });
       }
 
       // Audit report — same transparency as the main migration path.
@@ -417,7 +426,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  const outcome = migrationOutcome(res.verify, null);
  if (outcome === 'success') { onAddLog(`[移植成功] ${res.message}`, 'success'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'success'); }
  else if (outcome === 'needs-review') { onAddLog(`[移植完成·需确认] ${res.message}`, 'warning'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'warning'); }
-      else { onAddLog(`[移植校验失败] ${res.message}`, 'error'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'error'); onFailure?.({ verify: res.verify, message: res.message, direction: `${sourceSide}_to_${targetSide}` }); }
+      else { onAddLog(`[移植校验失败] ${res.message}`, 'error'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'error'); onFailure?.({ verify: res.verify, message: res.message, direction: `${sourceSide}_to_${targetSide}`, gameName: topMatch?.name ?? null }); }
  logVerifyReport(res.verify, onAddLog);
  if (res.warnings && res.warnings.length > 0) {
  res.warnings.forEach((w: string) => { onAddLog(`[安全提醒] ${w}`, 'warning'); toast(w, 'warning'); });
@@ -426,7 +435,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
     } catch (err: any) {
       onAddLog(`[移植失败] ${err.message}`, 'error');
       toast(`移植失败: ${err.message}`, 'error');
-      onFailure?.({ error: err, direction: `${sourceSide}_to_${targetSide}` });
+      onFailure?.({ error: err, direction: `${sourceSide}_to_${targetSide}`, code: (err as any)?.code ?? null, gameName: topMatch?.name ?? null });
     } finally {
       setCopyBusy(false);
       onMigratingChange(false);
@@ -473,7 +482,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
       } else {
         onAddLog(`[移植校验失败] ${res.message}`, 'error');
         toast(outcomeText(outcome, null, res.verify), 'error');
-        onFailure?.({ verify: res.verify, message: res.message, direction });
+        onFailure?.({ verify: res.verify, message: res.message, direction, gameName: topMatch?.name ?? null });
       }
  logVerifyReport(res.verify, onAddLog);
  if (res.warnings && res.warnings.length > 0) {
@@ -486,7 +495,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
     } catch (err: any) {
       onAddLog(`[移植失败] ${err.message}`, 'error');
       toast(`移植失败: ${err.message}`, 'error');
-      onFailure?.({ error: err, direction });
+      onFailure?.({ error: err, direction, code: (err as any)?.code ?? null, gameName: topMatch?.name ?? null });
     } finally {
       setBusy(false);
       onMigratingChange(false);

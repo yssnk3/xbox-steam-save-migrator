@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Sparkles, Loader2, AlertTriangle, RefreshCw, Settings as SettingsIcon, ChevronRight, FileWarning } from 'lucide-react';
 import { FailureContext, AiExplanation, AiHistoryItem } from '../types';
 import { explainFailureApi, fetchSettings, fetchAiHistory, fetchAiHistoryEntry, deleteAiHistoryApi } from '../services/api';
@@ -63,6 +63,9 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const [followUp, setFollowUp] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<AiHistoryItem[]>([]);
+  // 自动分析只跑一次；用 ref 让上面的 effect 能调用后面定义的 runExplain
+  const autoRanRef = useRef(false);
+  const runExplainRef = useRef<((question?: string) => Promise<void>) | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -77,7 +80,14 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
         if (cancelled) return;
         if (!settings.ai.apiKeySet) setAiState('unconfigured');
         else if (!settings.ai.enabled) setAiState('disabled');
-        else setAiState('ready');
+        else {
+          setAiState('ready');
+          // 「失败后自动分析」：配置齐备时自动发起首轮，且整个弹窗只发一次
+          if (settings.ai.autoAnalyze && !autoRanRef.current) {
+            autoRanRef.current = true;
+            void runExplainRef.current?.();
+          }
+        }
       })
       .catch(() => { if (!cancelled) setAiState('unconfigured'); });
     return () => { cancelled = true; };
@@ -142,6 +152,11 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
       setExplaining(false);
     }
   };
+
+  // 让配置加载的 effect 能在挂载后调用到最新的 runExplain
+  useEffect(() => {
+    runExplainRef.current = runExplain;
+  });
 
   // Known facts the tool can state without the model's help.
   const verify = context.verify;

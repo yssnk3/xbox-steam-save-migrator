@@ -16,6 +16,8 @@ export function buildFailureContext(
     game?: GameItem | null;
     gameName?: string | null;
     direction?: string | null;
+    /** 显式传入的错误码（优先于从 ApiError 里取） */
+    code?: string | null;
     stage: string;
     warnings?: string[];
   },
@@ -38,13 +40,13 @@ export function buildFailureContext(
         ...base,
         ...(err.context || {}),
         stage: err.context?.stage || opts.stage,
-        code: err.code || err.context?.code || null,
+        code: opts.code || err.code || err.context?.code || null,
         error: err.message,
       };
     }
     return {
       ...base,
-      code: null,
+      code: opts.code || null,
       error: err instanceof Error ? err.message : String(err),
     };
   }
@@ -52,7 +54,7 @@ export function buildFailureContext(
   // Silent verify-failure path
   return {
     ...base,
-    code: 'VERIFY_FAILED',
+    code: opts.code || 'VERIFY_FAILED',
     error: source.message || '落盘校验未通过：写入的文件缺失、为 0 字节，或 MD5 与来源不一致',
     verify: source.verify || null,
   };

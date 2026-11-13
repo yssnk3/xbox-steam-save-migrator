@@ -548,8 +548,18 @@ export const App: React.FC = () => {
           }}
           onFailure={(f) => {
             const ctx = f.error
-              ? buildFailureContext({ error: f.error }, { direction: f.direction, stage: 'POST /api/manual/migrate' })
-              : buildFailureContext({ verify: f.verify as any, message: f.message }, { direction: f.direction, stage: 'POST /api/manual/migrate' });
+              ? buildFailureContext({ error: f.error }, {
+                  direction: f.direction,
+                  stage: 'POST /api/manual/migrate',
+                  code: f.code || null,
+                  gameName: f.gameName || null,
+                })
+              : buildFailureContext({ verify: f.verify as any, message: f.message }, {
+                  direction: f.direction,
+                  stage: 'POST /api/manual/migrate',
+                  code: f.code || null,
+                  gameName: f.gameName || null,
+                });
             setFailureHeadline(f.message || (f.error instanceof Error ? `移植失败：${f.error.message}` : '移植未成功'));
             setFailureContext(ctx);
           }}

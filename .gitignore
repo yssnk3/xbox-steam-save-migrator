@@ -40,3 +40,6 @@ settings.json
 
 # 扫描结果磁盘缓存（运行时生成）
 xbox-library-cache.json
+
+# AI 诊断历史（运行时生成）
+ai-history.json
