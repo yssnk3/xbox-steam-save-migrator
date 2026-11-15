@@ -36,6 +36,36 @@ const SYSTEM_PROMPT = `你是一个 Steam ↔ Xbox PC 游戏存档移植工具�
 - 不要输出 markdown 标题、代码块或表格；纯文本，段落之间空行。
 - 绝不虚构不存在的文件路径、容器名或工具名。`;
 
+/**
+ * 通用问答模式的系统提示词。
+ *
+ * 与 SYSTEM_PROMPT 共享领域知识，但去掉「诊断这次失败」的框架——
+ * 用户在 AI 面板新建会话时可能问的是「怎么把 Steam 存档移植到 Xbox」
+ * 这类操作问题，而不是一次具体失败的诊断。
+ */
+const GENERAL_SYSTEM_PROMPT = `你是一个 Steam ↔ Xbox PC 游戏存档移植工具的助手。
+
+工具背景（务必基于这些事实回答，不要臆造）：
+- Xbox PC Game Pass 的存档位于 %LOCALAPPDATA%\\Packages\\<包名>\\SystemAppData\\wgs\\<XUID>\\，
+  由 containers.index（清单）+ container.N（容器内容）组成。
+- 工具已逆向真实 Xbox v14 容器格式，写入时采用"就地替换字节"策略：
+  保留原有容器名、GUID、序号，只替换存档字节，从而不破坏游戏需要的结构。
+- Steam → Xbox 方向要求 Xbox 端**已经存在**该游戏自己生成的 WGS 结构。如果不存在，
+  工具会拒绝写入并提示 needs-launch，正确做法是先在 Xbox 端启动一次游戏并存档。
+- 槽位匹配规则：Steam 文件名能派生出 Xbox 容器名（同名，或去掉版本后缀如
+  user1_1.0.30000.dat → user1）才会写入；无法对应的文件会被跳过并列在 unusedSteamFiles。
+- 部分游戏两端字节格式不兼容（如幻兽帕鲁），工具会以 BYTE_INCOMPATIBLE 或
+  CONVERSION_REQUIRED 硬性阻止，这是保护行为，不是故障。
+- 常见失败码：GAME_RUNNING（游戏未退出）、PLATFORM_RUNNING（平台客户端占用）、
+  CONVERSION_REQUIRED（需外部转换工具）、BYTE_INCOMPATIBLE（字节不兼容已拦截）、
+  verify.ok=false（写入了但落盘校验不通过：文件缺失/0 字节/MD5 不符）。
+
+输出要求：
+- 用中文，先给结论，再给具体步骤。
+- 步骤要可执行（点哪个按钮、选哪个方向），不要泛泛而谈。
+- 不要输出 markdown 标题、代码块或表格；纯文本，段落之间空行。
+- 绝不虚构不存在的文件路径、容器名或工具名。`;
+
 /** Keep only the last two path segments — enough to identify, not enough to fingerprint. */
 function maskPath(p) {
   if (!p || typeof p !== 'string') return null;
@@ -95,11 +125,17 @@ class AiError extends Error {
 }
 
 /**
- * Ask the configured model to explain a migration failure.
- * @param {object} context failure context from the route
+ * Ask the configured model to explain a migration failure — or answer a general question.
+ *
+ * Two modes, decided by whether the caller supplies a failure context:
+ *  - 失败诊断：context 非空 → SYSTEM_PROMPT + 现场 JSON
+ *  - 通用问答：context 为空且给了 question → GENERAL_SYSTEM_PROMPT + 原始问题
+ *
+ * @param {object} context failure context from the route; empty for general Q&A
  * @param {object} [options]
  * @param {{role:'user'|'assistant', content:string}[]} [options.messages] 多轮对话历史
  * @param {{type?:string, message:string}[]} [options.logs] 最近的运行日志
+ * @param {string} [options.question] 通用问答模式下的用户问题
  * @returns {Promise<{ text: string, model: string }>}
  */
 export async function explainFailure(context, options = {}) {
@@ -129,10 +165,22 @@ export async function explainFailure(context, options = {}) {
   // 多轮对话：system + 首轮现场信息 + 历史追问
   const history = Array.isArray(options.messages) ? options.messages : [];
   const logs = Array.isArray(options.logs) ? options.logs.slice(-30) : [];
+  const question = typeof options.question === 'string' ? options.question.trim() : '';
+
+  // 没有失败现场 → 通用问答模式：问题本身就是首轮 user 消息
+  const hasContext = !!(context && (context.error || context.code || context.gameName || context.stage));
+  const general = !hasContext && !!question;
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: buildUserMessage(context, logs) },
+    { role: 'system', content: general ? GENERAL_SYSTEM_PROMPT : SYSTEM_PROMPT },
   ];
+  if (general) {
+    // 通用问答：历史为空时用 question 作首轮；历史非空时历史里已含首轮问题，
+    // 再插一次会重复。
+    if (history.length === 0) messages.push({ role: 'user', content: question });
+  } else {
+    messages.push({ role: 'user', content: buildUserMessage(context, logs) });
+  }
   for (const m of history) {
     if (!m || typeof m.content !== 'string') continue;
     if (m.role !== 'user' && m.role !== 'assistant') continue;

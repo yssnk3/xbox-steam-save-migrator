@@ -5,7 +5,7 @@ import { AiTurn } from '../types';
 /**
  * AI 回答的三段式渲染（原因 / 可能方案 / 下一步操作）。
  *
- * 从 FailureAssistantModal 抽出，供失败弹窗与 AI 面板共用——
+ * 从 FailureAssistantModal 抽出，供失败弹窗与 AI 诊断页共用——
  * 两处展示的是同一批数据，不该有两套解析逻辑。
  */
 

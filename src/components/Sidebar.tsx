@@ -10,10 +10,11 @@ import {
   Library,
   Shield,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 import { ThemeMode } from '../theme';
 
-export type TabKey = 'games' | 'xbox' | 'backups' | 'settings';
+export type TabKey = 'games' | 'xbox' | 'backups' | 'ai' | 'settings';
 
 interface SidebarProps {
   activeTab: TabKey;
@@ -25,6 +26,8 @@ interface SidebarProps {
   gameCount?: number;
   backupCount?: number;
   libraryCount?: number;
+  /** AI 诊断会话数 */
+  aiCount?: number;
   onOpenSearch: () => void;
   themeMode: ThemeMode;
   onCycleTheme: () => void;
@@ -53,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   gameCount = 0,
   backupCount = 0,
   libraryCount = 0,
+  aiCount = 0,
   onOpenSearch,
   themeMode,
   onCycleTheme,
@@ -64,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { key: 'games', icon: <Layers className="w-4 h-4" />, label: '游戏移植', count: gameCount },
     { key: 'xbox', icon: <Library className="w-4 h-4" />, label: 'Xbox 游戏库', count: libraryCount },
     { key: 'backups', icon: <Shield className="w-4 h-4" />, label: '备份中心', count: backupCount },
+    { key: 'ai', icon: <Sparkles className="w-4 h-4" />, label: 'AI 诊断', count: aiCount },
   ];
 
   return (

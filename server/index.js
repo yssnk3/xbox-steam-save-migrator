@@ -1132,7 +1132,9 @@ app.post('/api/ai/explain-failure', async (req, res) => {
     const messages = req.body?.messages;
     const logs = req.body?.logs;
     const sessionIdReq = req.body?.sessionId || null;
-    const result = await explainFailure(context, { messages, logs });
+    // 通用问答：没有失败现场时，问题本身就是首轮 user 消息
+    const question = req.body?.question || null;
+    const result = await explainFailure(context, { messages, logs, question });
 
     // 落盘：带 sessionId 追加轮次；否则新建会话（旧行为：只记首轮）
     let sessionId = null;
@@ -1140,7 +1142,7 @@ app.post('/api/ai/explain-failure', async (req, res) => {
       const isFollowUp = Array.isArray(messages) && messages.length > 0;
       const lastUserMsg = isFollowUp
         ? [...messages].reverse().find(m => m?.role === 'user')?.content
-        : null;
+        : question;
       if (sessionIdReq || !isFollowUp) {
         const session = appendAiHistory({
           sessionId: sessionIdReq,
@@ -1148,6 +1150,7 @@ app.post('/api/ai/explain-failure', async (req, res) => {
           question: lastUserMsg || null,
           answer: result.text,
           model: result.model,
+          title: req.body?.title || null,
         });
         sessionId = session?.id || null;
       }

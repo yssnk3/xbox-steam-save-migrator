@@ -14,7 +14,7 @@ interface FailureAssistantModalProps {
   onClose: () => void;
   onGotoSettings: () => void;
   onGotoBackups: () => void;
-  /** 把当前对话搬到 AI 面板继续（面板不可用时隐藏该按钮） */
+  /** 把当前对话搬到 AI 诊断页继续（未接入时隐藏该按钮） */
   onContinueInPanel?: (payload: { context: FailureContext; turns: AiTurn[]; headline: string; sessionId?: string | null }) => void;
 }
 
@@ -38,7 +38,7 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const [followUp, setFollowUp] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<AiHistoryItem[]>([]);
-  // 服务端落盘的会话 id —— 搬去 AI 面板时直接续接同一个会话
+  // 服务端落盘的会话 id —— 搬去 AI 诊断页时直接续接同一个会话
   const [sessionId, setSessionId] = useState<string | null>(null);
   // 自动分析只跑一次；用 ref 让上面的 effect 能调用后面定义的 runExplain
   const autoRanRef = useRef(false);
@@ -317,10 +317,10 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
                         <button
                           onClick={() => onContinueInPanel({ context, turns, headline, sessionId })}
                           className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1"
-                          title="把这次诊断搬到 AI 面板继续追问"
+                          title="把这次诊断搬到 AI 诊断页继续追问"
                         >
                           <PanelRightOpen className="w-3 h-3" />
-                          在 AI 面板继续
+                          在 AI 诊断中继续
                         </button>
                       )}
                       <button onClick={openHistory} className="text-[11px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1">

@@ -8,7 +8,7 @@ import { Sidebar, TabKey } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { SearchPalette, SearchResult } from './components/SearchPalette';
 import { EnvBanner } from './components/EnvBanner';
-import { fetchEnv, saveSettings, fetchSettings } from './services/api';
+import { fetchEnv, saveSettings, fetchSettings, fetchAiHistory } from './services/api';
 import { applyCachedTheme, applyTheme, cacheTheme, watchSystemTheme, ThemeMode, AccentColor, DEFAULT_APPEARANCE } from './theme';
 import { GameGrid } from './components/GameGrid';
 import { SaveComparisonModal } from './components/SaveComparisonModal';
@@ -32,6 +32,7 @@ const PAGE_META: Record<TabKey, { title: string; desc: string }> = {
   games: { title: '游戏移植', desc: '识别本机存档，选择方向后一键移植；支持 Steam ↔ Xbox 双向转换。' },
   xbox: { title: 'Xbox 游戏库', desc: '列出本机已安装的 Xbox / Game Pass 游戏，可直接启动以生成存档结构。' },
   backups: { title: '备份中心', desc: '每次移植前自动备份，可在此查看、还原或清理历史备份。' },
+  ai: { title: 'AI 诊断', desc: '查看历史诊断会话、继续追问，或直接提问；移植失败时也可把现场搬进来。' },
   settings: { title: '设置', desc: '路径自检、外观主题与 AI 诊断配置。' },
 };
 
@@ -63,13 +64,9 @@ export const App: React.FC = () => {
  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
  const [accent, setAccent] = useState<AccentColor>('neutral');
 
- // AI 面板：第二列。默认折叠（44px 竖条），展开宽度记 localStorage。
- const [aiPanelOpen, setAiPanelOpen] = useState(() => localStorage.getItem('sxsm.aiPanel') === 'open');
- const [aiPanelWidth, setAiPanelWidth] = useState(() => {
-   const v = Number(localStorage.getItem('sxsm.aiPanelWidth'));
-   return Number.isFinite(v) && v >= 200 && v <= 420 ? v : 300;
- });
+ // AI 诊断：作为侧边栏的一个 tab；失败弹窗可把现场搬进来
  const [aiPending, setAiPending] = useState<{ context: FailureContext; turns: AiTurn[]; headline: string; sessionId?: string | null } | null>(null);
+ const [aiSessionCount, setAiSessionCount] = useState(0);
 
 
  // Confirm dialog state
@@ -249,19 +246,22 @@ export const App: React.FC = () => {
     loadBackupCount();
     // 游戏库走磁盘缓存，进入程序立即有内容（不触发 PowerShell 枚举）
     loadLibrary(false);
+    // AI 会话数用于侧边栏角标（列表本身在 AI 页加载）
+    fetchAiHistory().then(({ history }) => setAiSessionCount(history.length)).catch(() => {});
   }, []);
 
-  // Ctrl+K 打开搜索
+  // Ctrl+K 打开搜索（AI 诊断页自己接管这个键，聚焦会话搜索框）
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        if (activeTab === 'ai') return;
         e.preventDefault();
         setSearchOpen(v => !v);
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, []);
+  }, [activeTab]);
 
   // 搜索跳转：切页 + 记录定位目标，页面消费后 2s 清空
   const handleSearchJump = useCallback((result: SearchResult) => {
@@ -454,6 +454,7 @@ export const App: React.FC = () => {
         gameCount={games.length}
         libraryCount={libraryGames.filter(g => g.isGame).length}
         backupCount={backupCount}
+        aiCount={aiSessionCount}
         onOpenSearch={() => setSearchOpen(true)}
         themeMode={themeMode}
         onCycleTheme={() => {
@@ -462,23 +463,6 @@ export const App: React.FC = () => {
           applyTheme({ theme: next, accent });
           cacheTheme({ theme: next, accent });
           saveSettings({ appearance: { theme: next, accent } }).catch(() => {});
-        }}
-      />
-
-      <AiPanel
-        pendingSession={aiPending}
-        onPendingConsumed={() => setAiPending(null)}
-        expanded={aiPanelOpen}
-        onToggle={() => {
-          setAiPanelOpen(prev => {
-            localStorage.setItem('sxsm.aiPanel', prev ? 'collapsed' : 'open');
-            return !prev;
-          });
-        }}
-        width={aiPanelWidth}
-        onWidthChange={w => {
-          setAiPanelWidth(w);
-          localStorage.setItem('sxsm.aiPanelWidth', String(w));
         }}
       />
 
@@ -623,6 +607,12 @@ export const App: React.FC = () => {
             onForceRefresh={() => loadLibrary(true)}
             highlightKey={searchTarget?.tab === 'xbox' ? searchTarget.key : null}
           />
+        ) : activeTab === 'ai' ? (
+          <AiPanel
+            pendingSession={aiPending}
+            onPendingConsumed={() => setAiPending(null)}
+            onCountChange={setAiSessionCount}
+          />
         ) : (
           <SettingsPanel
             onAddLog={addLog}
@@ -676,8 +666,7 @@ export const App: React.FC = () => {
           onGotoBackups={() => { setFailureContext(null); setActiveTab('backups'); }}
           onContinueInPanel={(payload) => {
             setAiPending(payload);
-            setAiPanelOpen(true);
-            localStorage.setItem('sxsm.aiPanel', 'open');
+            setActiveTab('ai');
             setFailureContext(null);
           }}
         />

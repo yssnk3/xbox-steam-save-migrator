@@ -350,12 +350,23 @@ export async function explainFailureApi(
     logs?: { type?: string; message: string }[];
     /** 续接已有会话：给了就把本轮追加到该会话 */
     sessionId?: string | null;
+    /** 通用问答：没有失败现场时，问题本身就是首轮提问 */
+    question?: string | null;
+    /** 会话标题（新建时用） */
+    title?: string | null;
   } = {},
 ): Promise<AiExplanation> {
   return apiFetch('/api/ai/explain-failure', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context, messages: options.messages, logs: options.logs, sessionId: options.sessionId }),
+    body: JSON.stringify({
+      context,
+      messages: options.messages,
+      logs: options.logs,
+      sessionId: options.sessionId,
+      question: options.question,
+      title: options.title,
+    }),
   });
 }
 

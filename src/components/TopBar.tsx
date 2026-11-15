@@ -15,6 +15,7 @@ const TAB_META: Record<TabKey, { group: string; title: string }> = {
   games: { group: '收藏', title: '游戏移植' },
   xbox: { group: '收藏', title: 'Xbox 游戏库' },
   backups: { group: '工作区', title: '备份中心' },
+  ai: { group: '工作区', title: 'AI 诊断' },
   settings: { group: '工作区', title: '设置' },
 };
 

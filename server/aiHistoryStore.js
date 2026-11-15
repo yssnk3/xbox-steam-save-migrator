@@ -27,6 +27,13 @@ function newId() {
   return `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** 从问题首句派生会话标题（截断到 24 字，带省略号）；空输入返回空串。 */
+function deriveTitle(text) {
+  const q = (text || '').trim().replace(/\s+/g, ' ');
+  if (!q) return '';
+  return q.length > 24 ? q.slice(0, 24) + '…' : q;
+}
+
 /** 旧记录 → 单轮会话。 */
 function migrateLegacyRecord(rec) {
   return {
@@ -135,7 +142,13 @@ export function appendAiHistory(entry) {
   } else {
     session = {
       id: newId(),
-      title: entry.title || entry.context?.gameName || '未识别游戏',
+      // 标题优先级：显式标题 → 游戏名 → 首轮问题 → 错误信息 → 兜底
+      // （自定义移植的失败没有游戏名，用错误信息当标题比「未识别游戏」有用）
+      title: entry.title
+        || entry.context?.gameName
+        || deriveTitle(entry.question)
+        || deriveTitle(entry.context?.error)
+        || '未识别游戏',
       createdAt: now,
       updatedAt: now,
       pinned: false,

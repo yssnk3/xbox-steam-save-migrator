@@ -35,9 +35,15 @@ const fake = http.createServer((req, res) => {
     try { parsed = JSON.parse(body); } catch {}
     const userTurns = (parsed?.messages || []).filter(m => m.role === 'user');
     const isFollowUp = userTurns.length > 1;
-    const answer = isFollowUp
-      ? '原因：追问轮，历史已送达。\n可能方案：按上一轮建议操作\n下一步操作：检查备份后重试'
-      : '原因：首轮分析回答。\n可能方案：检查目标目录权限\n下一步操作：重新扫描后再次移植';
+    // 通用问答模式的 system prompt 与失败诊断不同，用它区分
+    const isGeneral = (parsed?.messages || []).some(
+      m => m.role === 'system' && String(m.content).includes('存档移植工具的助手'),
+    );
+    const answer = isGeneral
+      ? (isFollowUp ? '通用追问轮回答。\n下一步：按上一轮建议操作' : '通用首轮回答。\n下一步：先在 Xbox 端启动一次游戏')
+      : (isFollowUp
+        ? '原因：追问轮，历史已送达。\n可能方案：按上一轮建议操作\n下一步操作：检查备份后重试'
+        : '原因：首轮分析回答。\n可能方案：检查目标目录权限\n下一步操作：重新扫描后再次移植');
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       model: 'fake-model',
@@ -165,6 +171,59 @@ check('导出中文无污染', !md.includes('\uFFFD'));
 // ---------- 7) 删除 ----------
 check('删除返回 true', (await (await fetch(`${API}/api/ai/history/${sid}`, { method: 'DELETE' })).json()).success === true);
 check('删除后列表为空', (await (await fetch(`${API}/api/ai/history`)).json()).history.length === 0);
+
+// ---------- 8) 通用问答（无失败现场的新会话） ----------
+const g1 = await (await fetch(`${API}/api/ai/explain-failure`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ context: {}, question: '怎么把 Steam 存档移植到 Xbox？' }),
+})).json();
+check('通用问答返回 sessionId', !!g1.sessionId, JSON.stringify(g1).slice(0, 120));
+check('通用问答有回答', typeof g1.text === 'string' && g1.text.length > 0);
+check('通用问答走的是通用提示词分支', g1.text.includes('通用首轮回答'), g1.text.slice(0, 60));
+
+const gEntry = (await (await fetch(`${API}/api/ai/history/${g1.sessionId}`)).json()).entry;
+check('通用问答标题取问题首句', gEntry.title === '怎么把 Steam 存档移植到 Xbox？', gEntry.title);
+check('通用问答首轮问题已记录', gEntry.turns[0].question === '怎么把 Steam 存档移植到 Xbox？', String(gEntry.turns[0].question));
+check('通用问答无失败现场', !gEntry.context.error && !gEntry.context.code);
+
+// 通用问答的追问：首轮问题不应被重复插入
+const g2 = await (await fetch(`${API}/api/ai/explain-failure`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    context: {},
+    question: '怎么把 Steam 存档移植到 Xbox？',
+    sessionId: g1.sessionId,
+    messages: [
+      { role: 'user', content: '怎么把 Steam 存档移植到 Xbox？' },
+      { role: 'assistant', content: g1.text },
+      { role: 'user', content: '那要先做什么准备？' },
+    ],
+  }),
+})).json();
+check('通用问答追问沿用同一会话', g2.sessionId === g1.sessionId, `${g2.sessionId} vs ${g1.sessionId}`);
+check('通用问答追问走通用分支', g2.text.includes('通用追问轮回答'), g2.text.slice(0, 60));
+const gEntry2 = (await (await fetch(`${API}/api/ai/history/${g1.sessionId}`)).json()).entry;
+check('通用问答追问后轮数为 2', gEntry2.turns.length === 2, String(gEntry2.turns.length));
+check('通用问答追问内容已记录', gEntry2.turns[1].question === '那要先做什么准备？', String(gEntry2.turns[1].question));
+
+// ---------- 9) 失败但无游戏名 → 标题取错误信息 ----------
+const n1 = await (await fetch(`${API}/api/ai/explain-failure`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    context: { error: '未找到 Steam 存档目录：D:/nx/s', direction: 'steam_to_xbox' },
+    messages: [],
+  }),
+})).json();
+const nEntry = (await (await fetch(`${API}/api/ai/history/${n1.sessionId}`)).json()).entry;
+check('无游戏名的失败会话标题取错误信息', nEntry.title.startsWith('未找到 Steam 存档目录'), nEntry.title);
+check('无游戏名的失败会话不是「未识别游戏」', nEntry.title !== '未识别游戏', nEntry.title);
+
+// ---------- 10) 清理 ----------
+await fetch(`${API}/api/ai/history`, { method: 'DELETE' });
+check('全部清空', (await (await fetch(`${API}/api/ai/history`)).json()).history.length === 0);
 
 // ---------- 收尾 ----------
 serverProc.kill();
