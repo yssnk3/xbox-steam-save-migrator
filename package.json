@@ -13,7 +13,7 @@
     "electron:dev": "concurrently \"npm run server\" \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "start": "concurrently \"npm run server\" \"npm run dev\"",
-    "test": "node scripts/wgs-selftest.mjs && node scripts/portability-test.mjs && node scripts/game-library-test.mjs && node scripts/ai-history-test.mjs && node scripts/ai-session-e2e-test.mjs"
+    "test": "node scripts/wgs-selftest.mjs && node scripts/portability-test.mjs && node scripts/game-library-test.mjs && node scripts/ai-history-test.mjs && node scripts/ai-session-e2e-test.mjs && node scripts/layout-test.mjs"
   },
   "dependencies": {
     "archiver": "^7.0.1",

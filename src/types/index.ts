@@ -139,6 +139,13 @@ export interface AppearanceSettings {
   accent: 'neutral' | 'blue' | 'green' | 'orange' | 'violet';
 }
 
+/**
+ * 布局几何（用户拖出来的）。
+ * 定义在 layout.ts 里的 LayoutSettings 是同一形状——这里用索引签名保持兼容，
+ * 避免两处各写一份字段清单而漂移。
+ */
+export type LayoutSettings = Record<string, number>;
+
 /** 手动覆盖的根目录；空串表示自动探测 */
 export interface PathSettings {
   steamRoot: string;
@@ -191,6 +198,7 @@ export interface AppSettings {
   backup: { keepCount: number };
   paths: PathSettings;
   appearance: AppearanceSettings;
+  layout?: LayoutSettings;
   storePath: string;
 }
 

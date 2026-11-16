@@ -10,6 +10,7 @@ import { SearchPalette, SearchResult } from './components/SearchPalette';
 import { EnvBanner } from './components/EnvBanner';
 import { fetchEnv, saveSettings, fetchSettings, fetchAiHistory } from './services/api';
 import { applyCachedTheme, applyTheme, cacheTheme, watchSystemTheme, ThemeMode, AccentColor, DEFAULT_APPEARANCE } from './theme';
+import { applyServerLayout, loadCachedLayout, useLayout } from './layout';
 import { GameGrid } from './components/GameGrid';
 import { SaveComparisonModal } from './components/SaveComparisonModal';
 import { PortabilityModal } from './components/PortabilityModal';
@@ -18,6 +19,7 @@ import XboxLibraryPanel from './components/XboxLibraryPanel';
 import SettingsPanel from './components/SettingsPanel';
 import { ManualConverter } from './components/ManualConverter';
 import { AiPanel } from './components/AiPanel';
+import { DragHandle } from './components/DragHandle';
 import { IdentifyMigratePanel } from './components/IdentifyMigratePanel';
 import { LogConsole } from './components/LogConsole';
 import { CustomGameModal } from './components/CustomGameModal';
@@ -62,7 +64,8 @@ export const App: React.FC = () => {
   const [searchTarget, setSearchTarget] = useState<{ tab: TabKey; key: string } | null>(null);
   const [envDismissed, setEnvDismissed] = useState(false);
  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
- const [accent, setAccent] = useState<AccentColor>('neutral');
+  const [accent, setAccent] = useState<AccentColor>('neutral');
+  const { contentPadding } = useLayout();
 
  // AI 诊断：作为侧边栏的一个 tab；失败弹窗可把现场搬进来
  const [aiPending, setAiPending] = useState<{ context: FailureContext; turns: AiTurn[]; headline: string; sessionId?: string | null } | null>(null);
@@ -216,14 +219,19 @@ export const App: React.FC = () => {
     const cached = applyCachedTheme();
     setThemeMode(cached.theme);
     setAccent(cached.accent);
+    // 布局同理：先用 localStorage 渲染，服务器值随后校正
+    loadCachedLayout();
     let cancelled = false;
     fetchSettings()
       .then(({ settings }) => {
-        if (cancelled || !settings.appearance) return;
-        setThemeMode(settings.appearance.theme);
-        setAccent(settings.appearance.accent);
-        applyTheme(settings.appearance);
-        cacheTheme(settings.appearance);
+        if (cancelled) return;
+        if (settings.appearance) {
+          setThemeMode(settings.appearance.theme);
+          setAccent(settings.appearance.accent);
+          applyTheme(settings.appearance);
+          cacheTheme(settings.appearance);
+        }
+        if (settings.layout) applyServerLayout(settings.layout);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -475,7 +483,13 @@ export const App: React.FC = () => {
         logCount={logs.length}
       />
       <main className="flex-1 min-w-0 overflow-y-auto pb-32">
-      <div className="max-w-[1100px] mx-auto w-full px-12 pt-10 pb-24">
+      <div
+        className="relative max-w-[1100px] mx-auto w-full pt-10 pb-24"
+        style={{ paddingLeft: contentPadding, paddingRight: contentPadding }}
+      >
+        {/* 左右内边距拖拽：手柄贴在内容列的两条边上 */}
+        <DragHandle layoutKey="contentPadding" edge="left" label="拖动调整正文左边距" />
+        <DragHandle layoutKey="contentPadding" edge="right" label="拖动调整正文右边距" />
         {/* Notion 页面标题：大字号 + 一行说明，位于正文顶部 */}
         <div className="mb-8">
           <h1 className="t-page-title">{PAGE_META[activeTab].title}</h1>

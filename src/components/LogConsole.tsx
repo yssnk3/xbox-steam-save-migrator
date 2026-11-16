@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { LogEntry } from '../types';
 import { Terminal, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Info, XCircle, X } from 'lucide-react';
+import { useLayout } from '../layout';
+import { DragHandle } from './DragHandle';
 
 interface LogConsoleProps {
   logs: LogEntry[];
@@ -23,9 +25,26 @@ const TONE = {
 
 export const LogConsole: React.FC<LogConsoleProps> = ({ logs, onClear, onClose }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const { logWidth, logHeight } = useLayout();
 
   return (
-    <div className="fixed bottom-4 right-4 z-30 w-96 max-w-[calc(100vw-2rem)] rounded-[8px] overflow-hidden border border-[#2F2F2F] bg-[#1F1E1B] shadow-[rgba(15,15,15,0.1)_0_3px_6px,rgba(15,15,15,0.2)_0_9px_24px]">
+    <div
+      className="fixed bottom-4 right-4 z-30 max-w-[calc(100vw-2rem)] rounded-[8px] overflow-hidden border border-[#2F2F2F] bg-[#1F1E1B] shadow-[rgba(15,15,15,0.1)_0_3px_6px,rgba(15,15,15,0.2)_0_9px_24px]"
+      style={{ width: logWidth }}
+    >
+      {/* 四条边 + 四个角都能拖（浮层是真正能自由改尺寸的部件） */}
+      {!collapsed && (
+        <>
+          <DragHandle layoutKey="logWidth" edge="left" label="拖动调整日志面板宽度" />
+          <DragHandle layoutKey="logWidth" edge="right" label="拖动调整日志面板宽度" />
+          <DragHandle layoutKey="logHeight" edge="top" label="拖动调整日志面板高度" />
+          <DragHandle layoutKey="logHeight" edge="bottom" label="拖动调整日志面板高度" />
+          <DragHandle layoutKey="logWidth" layoutKeyY="logHeight" axis="xy" edge="top-left" label="拖动调整日志面板尺寸" />
+          <DragHandle layoutKey="logWidth" layoutKeyY="logHeight" axis="xy" edge="top-right" label="拖动调整日志面板尺寸" />
+          <DragHandle layoutKey="logWidth" layoutKeyY="logHeight" axis="xy" edge="bottom-left" label="拖动调整日志面板尺寸" />
+          <DragHandle layoutKey="logWidth" layoutKeyY="logHeight" axis="xy" edge="bottom-right" label="拖动调整日志面板尺寸" />
+        </>
+      )}
       {/* 标题栏 */}
       <div className="px-4 py-2.5 bg-[#252525] border-b border-[#333] flex items-center justify-between">
         <div className="flex items-center gap-2 text-[12px] font-medium text-[#D4D4D4]">
@@ -59,7 +78,7 @@ export const LogConsole: React.FC<LogConsoleProps> = ({ logs, onClear, onClose }
 
       {/* 日志列表 */}
       {!collapsed && (
-        <div className="p-3 max-h-48 overflow-y-auto space-y-2 font-mono text-[12px] bg-[#191919]">
+        <div className="p-3 overflow-y-auto space-y-2 font-mono text-[12px] bg-[#191919]" style={{ height: logHeight }}>
           {logs.length === 0 ? (
             <div className="text-[#6F6F6F] text-center py-4">暂无日志</div>
           ) : (

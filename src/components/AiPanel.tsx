@@ -25,6 +25,8 @@ import {
 } from '../services/api';
 import { AiConversation } from './AiTurnView';
 import { useToast } from './Toast';
+import { useLayout } from '../layout';
+import { DragHandle } from './DragHandle';
 
 /**
  * AI 诊断页 — 侧边栏里的一个 tab，与「游戏移植」「Xbox 游戏库」同级。
@@ -86,6 +88,7 @@ function hasFailureContext(ctx?: FailureContext | null): boolean {
 
 export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsumed, onCountChange }) => {
   const toast = useToast();
+  const { aiListWidth, aiPanelHeight } = useLayout();
   const [sessions, setSessions] = useState<AiHistoryItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [session, setSession] = useState<AiSession | null>(null);
@@ -354,9 +357,11 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
   };
 
   return (
-    <div className="panel flex overflow-hidden" style={{ height: 'calc(100vh - 230px)', minHeight: 420 }}>
+    <div className="panel relative flex overflow-hidden" style={{ height: aiPanelHeight, minHeight: 420 }}>
       {/* ---------- 左：会话列表 ---------- */}
-      <div className="w-[260px] shrink-0 flex flex-col border-r border-ink-borderSoft min-h-0">
+      <div className="relative shrink-0 flex flex-col border-r border-ink-borderSoft min-h-0" style={{ width: aiListWidth }}>
+        {/* 右边缘拖拽调宽 */}
+        <DragHandle layoutKey="aiListWidth" edge="right" label="拖动调整会话列表宽度" />
         <div className="shrink-0 px-3 py-2.5 space-y-2 border-b border-ink-borderSoft">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-faint pointer-events-none" />

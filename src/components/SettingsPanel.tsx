@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Save, Monitor, Sun, Moon } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Save, Monitor, Sun, Moon, RotateCcw } from 'lucide-react';
 import { ACCENT_OPTIONS, ThemeMode, AccentColor, applyTheme, cacheTheme } from '../theme';
 import { AppSettings } from '../types';
 import { fetchSettings, saveSettings, testAiConnectionApi } from '../services/api';
+import { resetLayout, toLayoutPatch, useLayout } from '../layout';
 import { useToast } from './Toast';
 
 interface SettingsPanelProps {
@@ -20,6 +21,7 @@ const LABEL_CLASS = 'block text-[12px] font-medium text-ink-muted mb-1.5';
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog, themeMode, accent, onThemeChange, onAccentChange }) => {
   const toast = useToast();
+  const layout = useLayout();
 
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog, themeMode, acce
   useEffect(() => {
     load();
   }, []);
+
+  /** 恢复默认布局：内存 + localStorage 立即复位，服务器值同步写回。 */
+  const handleResetLayout = async () => {
+    const next = resetLayout();
+    try {
+      await saveSettings({ layout: toLayoutPatch(next) });
+      toast('已恢复默认布局', 'success');
+    } catch (e: any) {
+      // 本地已复位，服务器没写成功只影响下次启动
+      toast(`布局已复位，但写入设置文件失败：${e.message}`, 'warning');
+    }
+    onAddLog('[布局] 已恢复默认值', 'info');
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -309,6 +324,38 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog, themeMode, acce
             className={`${INPUT_CLASS} font-mono text-[12px]`}
           />
           <p className="text-[11px] text-ink-faint mt-1">超出后自动清理最旧的备份（含元数据文件）</p>
+        </div>
+      </section>
+
+      {/* 布局 */}
+      <section className="panel p-5">
+        <header className="pb-3 border-b border-ink-borderSoft">
+          <h2 className="t-title">布局</h2>
+          <p className="t-meta mt-0.5">
+            拖动各面板边缘可直接调整尺寸，松手自动保存。此处可一键恢复默认。
+          </p>
+        </header>
+        <div className="pt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px]">
+            <dt className="text-ink-muted">侧边栏</dt>
+            <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.sidebarWidth}px</dd>
+            <dt className="text-ink-muted">顶栏</dt>
+            <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.topbarHeight}px</dd>
+            <dt className="text-ink-muted">正文留白</dt>
+            <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.contentPadding}px</dd>
+            <dt className="text-ink-muted">日志浮窗</dt>
+            <dd className="font-mono text-[11px] text-ink-faint tabular-nums">
+              {layout.logWidth}×{layout.logHeight}
+            </dd>
+            <dt className="text-ink-muted">AI 会话列</dt>
+            <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.aiListWidth}px</dd>
+            <dt className="text-ink-muted">AI 面板高</dt>
+            <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.aiPanelHeight}px</dd>
+          </dl>
+          <button onClick={handleResetLayout} className="btn-ghost px-3 py-1.5 text-[12px] flex items-center gap-1.5">
+            <RotateCcw className="w-3.5 h-3.5" />
+            恢复默认布局
+          </button>
         </div>
       </section>
 

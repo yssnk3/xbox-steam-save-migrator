@@ -452,6 +452,58 @@
   color: var(--ink-text);
 }
 
+/* ---------- 拖拽手柄（布局个性化） ---------- */
+
+/*
+ * 手柄本体只有 6px 可见宽度，用 ::before 向外再扩 6px 做透明命中区，
+ * 实际可抓约 18px——比看起来好抓，又不会和相邻控件抢点击。
+ */
+.drag-handle {
+  position: absolute;
+  z-index: 30;
+  background: transparent;
+  cursor: var(--drag-cursor, col-resize);
+  touch-action: none; /* 触屏上禁用浏览器默认的滚动/缩放手势 */
+  transition: background-color 0.12s ease;
+}
+
+.drag-handle::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.drag-handle:hover,
+.drag-handle.is-dragging {
+  background-color: var(--ink-accent-soft);
+}
+
+/* 手柄的具体朝向由 data-edge 决定贴哪条边 */
+.drag-handle[data-edge='top'] { top: 0; left: 0; right: 0; height: 6px; }
+.drag-handle[data-edge='bottom'] { bottom: 0; left: 0; right: 0; height: 6px; }
+.drag-handle[data-edge='left'] { left: 0; top: 0; bottom: 0; width: 6px; }
+.drag-handle[data-edge='right'] { right: 0; top: 0; bottom: 0; width: 6px; }
+
+/* 角：占 14×14，同时按住两个轴 */
+.drag-handle[data-edge='top-left'],
+.drag-handle[data-edge='top-right'],
+.drag-handle[data-edge='bottom-left'],
+.drag-handle[data-edge='bottom-right'] {
+  width: 14px;
+  height: 14px;
+}
+.drag-handle[data-edge='top-left'] { top: 0; left: 0; }
+.drag-handle[data-edge='top-right'] { top: 0; right: 0; }
+.drag-handle[data-edge='bottom-left'] { bottom: 0; left: 0; }
+.drag-handle[data-edge='bottom-right'] { bottom: 0; right: 0; }
+
+/* 拖动期间锁全局光标，避免划过其它元素时闪回默认箭头 */
+body.dragging,
+body.dragging * {
+  cursor: var(--drag-cursor, col-resize) !important;
+  user-select: none !important;
+}
+
 /* 尊重系统「减少动态效果」 */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -13,6 +13,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ThemeMode } from '../theme';
+import { useLayout } from '../layout';
+import { DragHandle } from './DragHandle';
 
 export type TabKey = 'games' | 'xbox' | 'backups' | 'ai' | 'settings';
 
@@ -63,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const ThemeIcon = themeMode === 'light' ? Sun : themeMode === 'dark' ? Moon : Monitor;
   const themeLabel = themeMode === 'light' ? '浅色' : themeMode === 'dark' ? '深色' : '跟随系统';
+  const { sidebarWidth } = useLayout();
 
   const navItems: NavEntry[] = [
     { key: 'games', icon: <Layers className="w-4 h-4" />, label: '游戏移植', count: gameCount },
@@ -72,7 +75,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-[240px] shrink-0 h-screen sticky top-0 flex flex-col bg-ink-sidebar border-r border-ink-borderSoft select-none">
+    <aside
+      className="relative shrink-0 h-screen sticky top-0 flex flex-col bg-ink-sidebar border-r border-ink-borderSoft select-none"
+      style={{ width: sidebarWidth }}
+    >
+      {/* 右边缘拖拽调宽 */}
+      <DragHandle layoutKey="sidebarWidth" edge="right" label="拖动调整侧边栏宽度" />
       {/* ---------- 固定区：工作区头 ---------- */}
       <div className="shrink-0 px-2 pt-3 pb-1">
         <button className="nav-item" style={{ paddingLeft: 6 }} title="Steam ↔ Xbox 存档移植">

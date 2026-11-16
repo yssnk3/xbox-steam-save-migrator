@@ -322,6 +322,7 @@ export async function saveSettings(patch: {
   backup?: Partial<{ keepCount: number }>;
   paths?: Partial<{ steamRoot: string; xboxPackagesRoot: string }>;
   appearance?: Partial<AppearanceSettings>;
+  layout?: Record<string, number>;
 }): Promise<{ settings: AppSettings }> {
   return apiFetch('/api/settings', {
     method: 'PUT',

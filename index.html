@@ -21,6 +21,18 @@
         document.documentElement.dataset.theme = resolved;
         document.documentElement.dataset.accent = a.accent || 'blue';
         document.documentElement.dataset.themeMode = mode;
+        // 布局同理：首帧前套上缓存的几何值，避免侧栏闪一下默认宽度
+        var l = JSON.parse(localStorage.getItem('sxsm-layout') || '{}');
+        var lim = {
+          sidebarWidth: [180, 420], topbarHeight: [36, 72], contentPadding: [16, 96],
+          logWidth: [280, 720], logHeight: [160, 600], aiListWidth: [200, 420], aiPanelHeight: [420, 1200],
+        };
+        for (var k in lim) {
+          var v = Number(l[k]);
+          if (!isFinite(v)) continue;
+          var r = lim[k];
+          document.documentElement.style.setProperty('--layout-' + k, Math.min(r[1], Math.max(r[0], Math.round(v))) + 'px');
+        }
       } catch (e) {}
     </script>
   </head>

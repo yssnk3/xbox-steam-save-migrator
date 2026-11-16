@@ -1,6 +1,8 @@
 import React from 'react';
 import { ChevronRight, MoreHorizontal, RefreshCw, Terminal, Star } from 'lucide-react';
 import { TabKey } from './Sidebar';
+import { useLayout } from '../layout';
+import { DragHandle } from './DragHandle';
 
 interface TopBarProps {
   activeTab: TabKey;
@@ -34,9 +36,15 @@ export const TopBar: React.FC<TopBarProps> = ({
   logCount,
 }) => {
   const meta = TAB_META[activeTab];
+  const { topbarHeight } = useLayout();
 
   return (
-    <header className="h-[45px] shrink-0 sticky top-0 z-20 flex items-center justify-between px-3 bg-ink-base/95 backdrop-blur-sm border-b border-ink-borderSoft">
+    <header
+      className="relative shrink-0 sticky top-0 z-20 flex items-center justify-between px-3 bg-ink-base/95 backdrop-blur-sm border-b border-ink-borderSoft"
+      style={{ height: topbarHeight }}
+    >
+      {/* 下边缘拖拽调高度 */}
+      <DragHandle layoutKey="topbarHeight" edge="bottom" label="拖动调整顶栏高度" />
       {/* 面包屑 */}
       <nav className="flex items-center gap-1 min-w-0 text-[14px]">
         <span className="text-ink-muted truncate">{meta.group}</span>

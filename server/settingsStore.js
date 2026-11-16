@@ -33,10 +33,34 @@ const DEFAULTS = {
     theme: 'system',   // 'system' | 'light' | 'dark'
     accent: 'neutral', // 'neutral' | 'blue' | 'green' | 'orange' | 'violet'
   },
+  // 用户拖出来的布局几何。拖动时只写 localStorage，松手才 PUT 到这里。
+  layout: {
+    sidebarWidth: 240,
+    topbarHeight: 45,
+    contentPadding: 48,   // 正文左右留白
+    logWidth: 384,
+    logHeight: 288,
+    aiListWidth: 260,
+    aiPanelHeight: 640,
+  },
 };
 
 const THEMES = ['system', 'light', 'dark'];
 const ACCENTS = ['neutral', 'blue', 'green', 'orange', 'violet'];
+
+/**
+ * 布局数值的合法区间 —— 下限防拖没，上限防拖出屏幕。
+ * 与 src/layout.ts 的 LIMITS 必须保持一致。
+ */
+const LAYOUT_LIMITS = {
+  sidebarWidth: [180, 420],
+  topbarHeight: [36, 72],
+  contentPadding: [16, 96],
+  logWidth: [280, 720],
+  logHeight: [160, 600],
+  aiListWidth: [200, 420],
+  aiPanelHeight: [420, 1200],
+};
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -119,6 +143,17 @@ export function writeSettings(patch = {}) {
     if (accent !== undefined && ACCENTS.includes(accent)) next.appearance.accent = accent;
   }
 
+  if (patch.layout && typeof patch.layout === 'object') {
+    for (const key of Object.keys(DEFAULTS.layout)) {
+      const value = patch.layout[key];
+      if (value === undefined) continue;
+      const n = Number(value);
+      if (!Number.isFinite(n)) continue; // 忽略非法输入，保留旧值
+      const [min, max] = LAYOUT_LIMITS[key];
+      next.layout[key] = Math.min(max, Math.max(min, Math.round(n)));
+    }
+  }
+
   // Clamp numeric fields to sane ranges so a typo can't hang the UI.
   const timeout = Number(next.ai.timeoutMs);
   next.ai.timeoutMs = Number.isFinite(timeout) ? Math.min(120000, Math.max(3000, timeout)) : DEFAULTS.ai.timeoutMs;
@@ -151,8 +186,9 @@ export function getPublicSettings() {
     backup: s.backup,
     paths: s.paths,
     appearance: s.appearance,
+    layout: s.layout,
     storePath: STORE_PATH,
   };
 }
 
-export { STORE_PATH, DEFAULTS, THEMES, ACCENTS };
+export { STORE_PATH, DEFAULTS, THEMES, ACCENTS, LAYOUT_LIMITS };
