@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { LogEntry } from '../types';
 import { Terminal, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Info, XCircle, X } from 'lucide-react';
-import { useLayout } from '../layout';
+import { setLayoutLive, useLayout } from '../layout';
 import { DragHandle } from './DragHandle';
 
 interface LogConsoleProps {
@@ -25,12 +25,44 @@ const TONE = {
 
 export const LogConsole: React.FC<LogConsoleProps> = ({ logs, onClear, onClose }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const { logWidth, logHeight } = useLayout();
+  const { logWidth, logHeight, logX, logY } = useLayout();
+  const dragStart = useRef<{ x: number; y: number; baseX: number; baseY: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const onTitlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    // 点在按钮上时不触发拖动
+    if ((e.target as HTMLElement).closest('button')) return;
+    dragStart.current = { x: e.clientX, y: e.clientY, baseX: logX, baseY: logY };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    setDragging(true);
+  };
+
+  const onTitlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const s = dragStart.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    // 往左上拖 → logX/logY 增大（浮窗离右/下边缘更远）
+    const nx = Math.min(1200, Math.max(0, s.baseX - dx));
+    const ny = Math.min(800, Math.max(0, s.baseY - dy));
+    setLayoutLive({ logX: Math.round(nx), logY: Math.round(ny) });
+  };
+
+  const onTitlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragStart.current = null;
+    setDragging(false);
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  };
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-30 max-w-[calc(100vw-2rem)] rounded-[8px] overflow-hidden border border-[#2F2F2F] bg-[#1F1E1B] shadow-[rgba(15,15,15,0.1)_0_3px_6px,rgba(15,15,15,0.2)_0_9px_24px]"
-      style={{ width: logWidth }}
+      className="fixed z-30 max-w-[calc(100vw-2rem)] rounded-[8px] overflow-hidden border border-[#2F2F2F] bg-[#1F1E1B] shadow-[rgba(15,15,15,0.1)_0_3px_6px,rgba(15,15,15,0.2)_0_9px_24px]"
+      style={{
+        width: logWidth,
+        right: logX,
+        bottom: logY,
+      }}
     >
       {/* 四条边 + 四个角都能拖（浮层是真正能自由改尺寸的部件） */}
       {!collapsed && (
@@ -45,8 +77,15 @@ export const LogConsole: React.FC<LogConsoleProps> = ({ logs, onClear, onClose }
           <DragHandle layoutKey="logWidth" layoutKeyY="logHeight" axis="xy" edge="bottom-right" label="拖动调整日志面板尺寸" />
         </>
       )}
-      {/* 标题栏 */}
-      <div className="px-4 py-2.5 bg-[#252525] border-b border-[#333] flex items-center justify-between">
+      {/* 标题栏：拖拽移动浮窗位置 */}
+      <div
+        className={`px-4 py-2.5 bg-[#252525] border-b border-[#333] flex items-center justify-between ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        onPointerDown={onTitlePointerDown}
+        onPointerMove={onTitlePointerMove}
+        onPointerUp={onTitlePointerUp}
+        onPointerCancel={onTitlePointerUp}
+        title="拖拽移动日志面板"
+      >
         <div className="flex items-center gap-2 text-[12px] font-medium text-[#D4D4D4]">
           <Terminal className="w-3.5 h-3.5" style={{ color: TONE.success }} />
           <span>运行日志 ({logs.length})</span>

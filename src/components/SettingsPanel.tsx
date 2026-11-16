@@ -345,7 +345,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onAddLog, themeMode, acce
             <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.contentPadding}px</dd>
             <dt className="text-ink-muted">日志浮窗</dt>
             <dd className="font-mono text-[11px] text-ink-faint tabular-nums">
-              {layout.logWidth}×{layout.logHeight}
+              {layout.logWidth}×{layout.logHeight} @ ({layout.logX}, {layout.logY})
             </dd>
             <dt className="text-ink-muted">AI 会话列</dt>
             <dd className="font-mono text-[11px] text-ink-faint tabular-nums">{layout.aiListWidth}px</dd>

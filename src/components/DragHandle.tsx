@@ -2,18 +2,19 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { clampLayout, getLayout, LayoutKey, persistLayout, setLayoutLive } from '../layout';
 
 /**
- * 共用的拖拽手柄。
+ * 共用的拖拽手柄——直接拖元素的边缘/角落即可调节，不需要先点选或进设置。
  *
  * 用 Pointer Events + setPointerCapture 而不是 mousedown/mousemove/mouseup：
  * 指针移出元素甚至移出窗口都能继续收到 move/up，不需要往 window 上挂监听器
  * 再在卸载时摘掉。一个 handle 就是一个元素，capture 天然把它和这次拖动绑定。
  *
- * 响应区域：手柄本体是可拖的 6px 条，但额外用 ::before 向外扩 6px 透明命中区
- * （见 index.css 的 .drag-handle），所以实际可抓宽度约 18px——比看起来好抓，
- * 又不会和相邻控件抢点击。
+ * 命中区：手柄本体 6px 宽，用 ::before 向外扩 8px 做透明命中区，
+ * 实际可抓约 22px——好抓又不会和相邻控件抢点击。
+ * 视觉反馈：hover 时手柄本体亮起（.drag-handle:hover），拖动时整个手柄
+ * 变成强调色（.is-dragging），并在光标旁浮出实时数值（.drag-tooltip）。
  * 光标：由 --drag-cursor 决定（col-resize / row-resize / 对角 resize），
  * 拖动期间给 body 加 .dragging 锁住全局光标，避免划过其它元素时闪烁。
- * 阈值：位移 < 3px 视为误触，不写存储、不报"已调整"。
+ * 阈值：位移 < 3px 视为误触，不写存储。
  */
 
 export type DragAxis = 'x' | 'y' | 'xy';
@@ -55,6 +56,7 @@ export const DragHandle: React.FC<DragHandleProps> = ({
   className = '',
 }) => {
   const [dragging, setDragging] = useState(false);
+  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
   const start = useRef<{ x: number; y: number; base: number; baseY: number; moved: boolean } | null>(null);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -99,12 +101,20 @@ export const DragHandle: React.FC<DragHandleProps> = ({
       patch[keyY] = s.baseY + sign * dy;
     }
     setLayoutLive(patch as never);
+
+    // 拖动中浮出实时数值（跟在光标右下方 12px）
+    const layout = getLayout();
+    const text = layoutKeyY && (axis === 'xy' || axis === 'y')
+      ? `${layout[layoutKey]} × ${layout[layoutKeyY]}`
+      : `${layout[layoutKey]}`;
+    setTip({ x: e.clientX + 12, y: e.clientY + 12, text });
   }, [axis, edge, layoutKey, layoutKeyY]);
 
   const endDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const s = start.current;
     start.current = null;
     setDragging(false);
+    setTip(null);
     try {
       if (e.currentTarget.hasPointerCapture(e.pointerId)) {
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -126,18 +136,28 @@ export const DragHandle: React.FC<DragHandleProps> = ({
   }, [dragging]);
 
   return (
-    <div
-      role="separator"
-      aria-label={label}
-      aria-orientation={axis === 'y' ? 'horizontal' : 'vertical'}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      className={`drag-handle ${dragging ? 'is-dragging' : ''} ${className}`}
-      style={{ ['--drag-cursor' as string]: CURSOR[edge] }}
-      data-edge={edge}
-    />
+    <>
+      <div
+        role="separator"
+        aria-label={label}
+        aria-orientation={axis === 'y' ? 'horizontal' : 'vertical'}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className={`drag-handle ${dragging ? 'is-dragging' : ''} ${className}`}
+        style={{ ['--drag-cursor' as string]: CURSOR[edge] }}
+        data-edge={edge}
+      />
+      {tip && (
+        <div
+          className="drag-tooltip"
+          style={{ left: tip.x, top: tip.y }}
+        >
+          {tip.text}
+        </div>
+      )}
+    </>
   );
 };
 

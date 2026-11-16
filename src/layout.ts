@@ -16,6 +16,9 @@ export interface LayoutSettings {
   contentPadding: number;
   logWidth: number;
   logHeight: number;
+  /** 日志浮窗距视口右/下的偏移；拖动标题栏时改这两个值 */
+  logX: number;
+  logY: number;
   aiListWidth: number;
   aiPanelHeight: number;
 }
@@ -34,6 +37,9 @@ export const LAYOUT_LIMITS: Record<LayoutKey, [number, number]> = {
   contentPadding: [16, 96],
   logWidth: [280, 720],
   logHeight: [160, 600],
+  // 位置偏移：0 = 贴右/贴底，正值 = 往左/往上移
+  logX: [0, 1200],
+  logY: [0, 800],
   aiListWidth: [200, 420],
   aiPanelHeight: [420, 1200],
 };
@@ -44,6 +50,8 @@ export const DEFAULT_LAYOUT: LayoutSettings = {
   contentPadding: 48,
   logWidth: 384,
   logHeight: 288,
+  logX: 0,
+  logY: 0,
   aiListWidth: 260,
   aiPanelHeight: 640,
 };

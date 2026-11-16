@@ -40,6 +40,8 @@ const DEFAULTS = {
     contentPadding: 48,   // 正文左右留白
     logWidth: 384,
     logHeight: 288,
+    logX: 0,              // 日志浮窗距右边缘偏移（拖动标题栏改这个）
+    logY: 0,              // 距下边缘偏移
     aiListWidth: 260,
     aiPanelHeight: 640,
   },
@@ -50,7 +52,7 @@ const ACCENTS = ['neutral', 'blue', 'green', 'orange', 'violet'];
 
 /**
  * 布局数值的合法区间 —— 下限防拖没，上限防拖出屏幕。
- * 与 src/layout.ts 的 LIMITS 必须保持一致。
+ * 与 src/layout.ts 的 LAYOUT_LIMITS 必须保持一致。
  */
 const LAYOUT_LIMITS = {
   sidebarWidth: [180, 420],
@@ -58,6 +60,8 @@ const LAYOUT_LIMITS = {
   contentPadding: [16, 96],
   logWidth: [280, 720],
   logHeight: [160, 600],
+  logX: [0, 1200],
+  logY: [0, 800],
   aiListWidth: [200, 420],
   aiPanelHeight: [420, 1200],
 };

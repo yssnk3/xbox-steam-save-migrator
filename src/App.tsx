@@ -486,8 +486,9 @@ export const App: React.FC = () => {
       <div
         className="relative max-w-[1100px] mx-auto w-full pt-10 pb-24"
         style={{ paddingLeft: contentPadding, paddingRight: contentPadding }}
+        title="拖拽正文左右边缘调整留白"
       >
-        {/* 左右内边距拖拽：手柄贴在内容列的两条边上 */}
+        {/* 正文左右留白：拖左右边缘即可调（手柄本体在边缘，命中区扩到 ~22px） */}
         <DragHandle layoutKey="contentPadding" edge="left" label="拖动调整正文左边距" />
         <DragHandle layoutKey="contentPadding" edge="right" label="拖动调整正文右边距" />
         {/* Notion 页面标题：大字号 + 一行说明，位于正文顶部 */}
