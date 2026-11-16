@@ -20,6 +20,7 @@ import { getPublicSettings, writeSettings, readSettings } from './settingsStore.
 import { getSteamEnvironment } from './steamLocator.js';
 import { explainFailure, testAiConnection, AiError } from './aiAssistant.js';
 import { listAiHistory, getAiHistoryEntry, appendAiHistory, updateAiHistory, deleteAiHistory, clearAiHistory, exportAiSessionMarkdown } from './aiHistoryStore.js';
+import { getScannedGames, addScannedGame, deleteScannedGame, clearScannedGames } from './scannedGamesStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1476,6 +1477,97 @@ app.post('/api/identify-save', (req, res) => {
   try {
     const result = identifySavePath(savePath);
     res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: 扫描文件夹 — 遍历子目录，识别已知游戏 + 列出未知存档
+app.post('/api/scan-folder', (req, res) => {
+  const { folderPath } = req.body || {};
+  if (!folderPath) {
+    return res.status(400).json({ success: false, error: '请提供要扫描的文件夹路径' });
+  }
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { identifySavePath } = require('./gameIdentifier.js');
+
+    if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+      return res.status(400).json({ success: false, error: '路径不存在或不是文件夹' });
+    }
+
+    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+    const subdirs = entries.filter(e => e.isDirectory()).map(e => path.join(folderPath, e.name));
+
+    // 如果选中的文件夹本身就是存档目录（没有子文件夹），也扫描它自己
+    if (subdirs.length === 0) {
+      subdirs.push(folderPath);
+    }
+
+    const results = [];
+    for (const dir of subdirs) {
+      try {
+        // 收集该目录下的存档文件
+        const files = fs.readdirSync(dir, { withFileTypes: true })
+          .filter(e => e.isFile())
+          .map(e => {
+            const fp = path.join(dir, e.name);
+            const stat = fs.statSync(fp);
+            return { name: e.name, size: stat.size, modified: stat.mtime.toISOString() };
+          });
+
+        if (files.length === 0) continue;
+
+        // 尝试识别
+        const identified = identifySavePath(dir);
+        const entry = {
+          folderPath: dir,
+          files,
+          matchedGameId: identified?.gameId || null,
+          matchedGameName: identified?.gameName || null,
+          steamSavePath: identified?.steamSavePath || null,
+          xboxWgsPath: identified?.xboxWgsPath || null,
+        };
+
+        addScannedGame(entry);
+        results.push(entry);
+      } catch {
+        // 跳过无法读取的子目录
+      }
+    }
+
+    res.json({ success: true, games: results, total: results.length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: 扫描结果列表
+app.get('/api/scanned-games', (req, res) => {
+  try {
+    res.json({ success: true, games: getScannedGames() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: 删除单条扫描结果
+app.delete('/api/scanned-games/:id', (req, res) => {
+  try {
+    const ok = deleteScannedGame(req.params.id);
+    if (!ok) return res.status(404).json({ success: false, error: '记录不存在' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: friendlyError(err) });
+  }
+});
+
+// API: 清空扫描结果
+app.delete('/api/scanned-games', (req, res) => {
+  try {
+    clearScannedGames();
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: friendlyError(err) });
   }

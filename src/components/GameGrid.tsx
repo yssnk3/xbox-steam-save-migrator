@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { GameItem } from '../types';
 import { GameCard } from './GameCard';
 import { useToast } from './Toast';
-import { Search } from 'lucide-react';
+import { Search, FolderSearch, Trash2 } from 'lucide-react';
+import { pickFolder, scanFolder, fetchScannedGames, deleteScannedGame } from '../services/api';
 
 interface GameGridProps {
   games: GameItem[];
@@ -18,6 +19,51 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'detected' | 'both'>('detected');
+  const [scanning, setScanning] = useState(false);
+  const [scannedGames, setScannedGames] = useState<any[]>([]);
+
+  // 加载扫描结果
+  React.useEffect(() => {
+    void loadScanned();
+  }, []);
+
+  // 加载扫描结果
+  const loadScanned = async () => {
+    try {
+      const { games: scanned } = await fetchScannedGames();
+      setScannedGames(scanned);
+    } catch {}
+  };
+
+  const handleScanFolder = async () => {
+    const folder = await pickFolder({ title: '选择要扫描的游戏文件夹' });
+    if (!folder) return;
+    setScanning(true);
+    try {
+      const result = await scanFolder(folder);
+      await loadScanned();
+      if (result.total === 0) {
+        toast('该文件夹下未找到存档文件', 'warning');
+      } else {
+        toast(`扫描完成：发现 ${result.total} 个存档目录`, 'success');
+      }
+    } catch (e: any) {
+      toast(`扫描失败：${e.message}`, 'error');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleDeleteScanned = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteScannedGame(id);
+      await loadScanned();
+      toast('已删除', 'success');
+    } catch (err: any) {
+      toast(`删除失败：${err.message}`, 'error');
+    }
+  };
 
   // Sort: ready-to-migrate (both sides detected) first, then single-side, then none.
   const sortedGames = [...games].sort((a, b) => {
@@ -61,12 +107,22 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
   return (
     <div className="space-y-3">
 
-      {/* 紧凑工具条：标题 + 计数 + 搜索 + 筛选 */}
+      {/* 紧凑工具条：标题 + 计数 + 扫描 + 搜索 + 筛选 */}
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="t-title">本机游戏存档</h2>
         <span className="t-meta">{filteredGames.length} / {games.length}</span>
 
         <div className="flex-1" />
+
+        <button
+          onClick={handleScanFolder}
+          disabled={scanning}
+          className="btn-ghost px-3 py-1.5 text-[13px] flex items-center gap-1.5 disabled:opacity-50"
+          title="选择文件夹，自动扫描并识别其中的游戏存档"
+        >
+          <FolderSearch className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
+          {scanning ? '扫描中…' : '扫描文件夹'}
+        </button>
 
         <div className="relative w-56">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-ink-faint" />
@@ -106,6 +162,56 @@ export const GameGrid: React.FC<GameGridProps> = ({ games, onSelectGame, onQuick
               onError={(msg) => toast(msg, 'error')}
             />
           ))}
+        </div>
+      )}
+
+      {/* 扫描文件夹结果 */}
+      {scannedGames.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[14px] font-medium text-ink-text">扫描结果</h3>
+            <span className="text-[11px] text-ink-faint">{scannedGames.length} 个目录</span>
+          </div>
+          <div className="panel divide-y divide-ink-borderSoft overflow-hidden">
+            {scannedGames.map(sg => (
+              <div key={sg.id} className="px-4 py-3 flex items-start gap-3 hover:bg-ink-elevated transition-colors">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-medium text-ink-text truncate">
+                      {sg.matchedGameName || sg.folderPath.split(/[/\\]/).pop()}
+                    </span>
+                    {sg.matchedGameId ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-ink-success/10 text-ink-success shrink-0">已识别</span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-ink-elevated text-ink-faint shrink-0">未识别</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-ink-faint font-mono truncate mt-0.5">
+                    {sg.folderPath}
+                  </div>
+                  <div className="text-[11px] text-ink-muted mt-0.5">
+                    {sg.files.length} 个文件 · {sg.files.reduce((s: number, f: any) => s + f.size, 0) > 0
+                      ? (sg.files.reduce((s: number, f: any) => s + f.size, 0) / 1024).toFixed(1) + ' KB'
+                      : '0 KB'}
+                  </div>
+                  {sg.matchedGameId && (sg.steamSavePath || sg.xboxWgsPath) && (
+                    <div className="text-[10px] text-ink-faint mt-0.5">
+                      {sg.steamSavePath && <span>Steam: {sg.steamSavePath}</span>}
+                      {sg.steamSavePath && sg.xboxWgsPath && ' · '}
+                      {sg.xboxWgsPath && <span>Xbox: {sg.xboxWgsPath}</span>}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={e => handleDeleteScanned(sg.id, e)}
+                  className="p-1.5 rounded text-ink-faint hover:text-ink-danger hover:bg-ink-elevated transition-colors shrink-0"
+                  title="删除"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

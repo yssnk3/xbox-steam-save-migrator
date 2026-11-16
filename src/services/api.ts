@@ -275,6 +275,31 @@ export async function deleteCustomGameApi(id: string) {
   });
 }
 
+// ===== 扫描文件夹：扫描 + 识别 + 落盘 =====
+
+export async function scanFolder(folderPath: string): Promise<{
+  games: { folderPath: string; files: { name: string; size: number; modified: string }[]; matchedGameId: string | null; matchedGameName: string | null; steamSavePath: string | null; xboxWgsPath: string | null }[];
+  total: number;
+}> {
+  return apiFetch('/api/scan-folder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folderPath }),
+  });
+}
+
+export async function fetchScannedGames(): Promise<{ games: any[] }> {
+  return apiFetch('/api/scanned-games');
+}
+
+export async function deleteScannedGame(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/api/scanned-games/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export async function clearScannedGames(): Promise<{ success: boolean }> {
+  return apiFetch('/api/scanned-games', { method: 'DELETE' });
+}
+
 // ===== Xbox 游戏库：扫描 / AUMID 直启 / 运行检测 / 云存档同步控制 =====
 
 export async function fetchXboxLibrary(refresh = false): Promise<{ games: XboxInstalledGame[] }> {
