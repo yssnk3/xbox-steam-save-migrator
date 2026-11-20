@@ -41,5 +41,11 @@ settings.json
 # 扫描结果磁盘缓存（运行时生成）
 xbox-library-cache.json
 
-# AI 诊断历史（运行时生成）
+# AI 诊断历史与文件夹扫描结果（运行时生成）
 ai-history.json
+scanned-games.json
+
+# 构建 / 测试临时目录
+.vite/
+coverage/
+*.local
