@@ -19,6 +19,7 @@ process.env.SXSM_DATA_DIR = tmpDir;
 const FAKE_PORT = 8799;
 const API_PORT = 3911;
 const API = `http://127.0.0.1:${API_PORT}`;
+let lastUserTurnCount = 0;
 
 let failed = 0;
 function check(name, cond, detail = '') {
@@ -34,6 +35,7 @@ const fake = http.createServer((req, res) => {
     let parsed = null;
     try { parsed = JSON.parse(body); } catch {}
     const userTurns = (parsed?.messages || []).filter(m => m.role === 'user');
+    lastUserTurnCount = userTurns.length;
     const isFollowUp = userTurns.length > 1;
     // 通用问答模式的 system prompt 与失败诊断不同，用它区分
     const isGeneral = (parsed?.messages || []).some(
@@ -47,6 +49,7 @@ const fake = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       model: 'fake-model',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
       choices: [{ message: { role: 'assistant', content: answer } }],
     }));
   });
@@ -109,6 +112,19 @@ const r1 = await (await fetch(`${API}/api/ai/explain-failure`, {
 })).json();
 check('首轮返回 sessionId', !!r1.sessionId, JSON.stringify(r1).slice(0, 120));
 check('首轮返回三段式文本', r1.text.includes('原因') && r1.text.includes('可能方案') && r1.text.includes('下一步操作'));
+check('首轮返回 token 用量', r1.usage?.total_tokens === 15, JSON.stringify(r1.usage));
+
+// ---------- 1b) 上下文预算：超长历史截断并如实标记 ----------
+const longHistory = Array.from({ length: 40 }, (_, i) => ({
+  role: i % 2 ? 'assistant' : 'user', content: `历史轮次 ${i}`,
+}));
+const rb = await (await fetch(`${API}/api/ai/explain-failure`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ context: CTX, messages: longHistory }),
+})).json();
+check('超长历史被标记 contextTruncated', rb.contextTruncated === true, String(rb.contextTruncated));
+check('超长历史只发送最近 16 条消息 + 现场', lastUserTurnCount === 9, String(lastUserTurnCount));
 
 const sid = r1.sessionId;
 
