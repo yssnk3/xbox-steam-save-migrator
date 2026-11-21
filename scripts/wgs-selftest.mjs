@@ -5,7 +5,8 @@
  * original is only ever read) and runs updateWgsInPlace against the copy, then
  * asserts the UNIVERSAL migration contract — zero per-game configuration:
  *   1. the game-visible structure survives byte-for-byte (container names,
- *      GUIDs, blob GUIDs, manifests, index length, seq/size fields);
+ *      GUIDs, blob GUIDs, manifests, index length, seq/size fields — real v14
+ *      stores size = 0, so it must be preserved, not recomputed);
  *   2. a blob is written iff its logical file name derives from a Steam file
  *      (exact name, or a version-suffix slot fed by the bare save) — rollback
  *      containers participate, because the game keeps those slots in sync with
