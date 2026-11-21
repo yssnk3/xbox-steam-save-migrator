@@ -104,6 +104,21 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
   const [cursor, setCursor] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const startRequest = () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    return controller.signal;
+  };
+  const cancelRequest = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setAsking(false);
+    toast('已停止生成', 'info');
+  };
+  const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
 
   // 拉列表
   const refreshList = useCallback(async () => {
@@ -147,7 +162,7 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
           await openSession(sessionId);
           toast(`已把「${headline}」搬到 AI 诊断`, 'success');
         } else {
-          const r = await explainFailureApi(pendingSession.context, { messages: [] });
+          const r = await explainFailureApi(pendingSession.context, { messages: [], signal: startRequest() });
           await refreshList();
           if (r.sessionId) await openSession(r.sessionId);
           toast(`已把「${headline}」搬到 AI 诊断`, 'success');
@@ -164,6 +179,7 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
     const q = question.trim();
     if (!q || !session) return;
     setAsking(true);
+    const signal = startRequest();
     try {
       const messages: { role: 'user' | 'assistant'; content: string }[] = [];
       for (const t of session.turns) {
@@ -174,13 +190,18 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
       // 通用问答会话没有失败现场 → 首轮问题得单独传，否则模型收不到问题
       const firstQuestion = session.turns.find(t => t.question)?.question || null;
       const r = hasFailureContext(session.context)
-        ? await explainFailureApi(session.context, { messages, sessionId: session.id })
-        : await explainFailureApi({}, { question: firstQuestion || q, messages, sessionId: session.id });
-      const nextTurn: AiTurn = { question: q, answer: r.text, model: r.model, at: new Date().toISOString() };
+        ? await explainFailureApi(session.context, { messages, sessionId: session.id, signal })
+        : await explainFailureApi({}, { question: firstQuestion || q, messages, sessionId: session.id, signal });
+      const nextTurn: AiTurn = {
+        question: q, answer: r.text, model: r.model,
+        usage: r.usage ?? null, contextTruncated: r.contextTruncated,
+        at: new Date().toISOString(),
+      };
       setSession({ ...session, turns: [...session.turns, nextTurn], updatedAt: new Date().toISOString() });
       setFollowUp('');
       await refreshList();
     } catch (e: any) {
+      if (isAbort(e)) return;
       toast(`追问失败：${e.message}`, 'error');
     } finally {
       setAsking(false);
@@ -191,21 +212,25 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
   const reanalyze = async () => {
     if (!session) return;
     setAsking(true);
+    const signal = startRequest();
     try {
       // 通用问答会话没有失败现场 → 用首轮问题重问；失败会话 → 带现场重诊断
       const firstQuestion = session.turns.find(t => t.question)?.question || null;
       const r = hasFailureContext(session.context)
-        ? await explainFailureApi(session.context, { messages: [], sessionId: session.id })
-        : await explainFailureApi({}, { question: firstQuestion || '请继续', sessionId: session.id });
+        ? await explainFailureApi(session.context, { messages: [], sessionId: session.id, replaceTurns: true, signal })
+        : await explainFailureApi({}, { question: firstQuestion || '请继续', sessionId: session.id, replaceTurns: true, signal });
       const turn: AiTurn = {
         question: hasFailureContext(session.context) ? null : firstQuestion,
         answer: r.text,
         model: r.model,
+        usage: r.usage ?? null,
+        contextTruncated: r.contextTruncated,
         at: new Date().toISOString(),
       };
       setSession({ ...session, turns: [turn], updatedAt: new Date().toISOString() });
       await refreshList();
     } catch (e: any) {
+      if (isAbort(e)) return;
       toast(`重新分析失败：${e.message}`, 'error');
     } finally {
       setAsking(false);
@@ -217,13 +242,15 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
     const q = question.trim();
     if (!q) return;
     setAsking(true);
+    const signal = startRequest();
     try {
-      const r = await explainFailureApi({}, { question: q });
+      const r = await explainFailureApi({}, { question: q, signal });
       setDraft('');
       setComposing(false);
       await refreshList();
       if (r.sessionId) await openSession(r.sessionId);
     } catch (e: any) {
+      if (isAbort(e)) return;
       toast(`提问失败：${e.message}`, 'error');
     } finally {
       setAsking(false);
@@ -608,9 +635,14 @@ export const AiPanel: React.FC<AiPanelProps> = ({ pendingSession, onPendingConsu
             {/* 追问输入 */}
             <div className="shrink-0 px-4 py-3 border-t border-ink-borderSoft space-y-2">
               {asking && (
-                <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  分析中…
+                <div className="flex items-center justify-between gap-2 text-[11px] text-ink-muted">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    分析中…
+                  </span>
+                  <button onClick={cancelRequest} className="text-ink-danger hover:underline">
+                    停止生成
+                  </button>
                 </div>
               )}
               <div className="flex items-center gap-2">
