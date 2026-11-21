@@ -112,6 +112,19 @@ check('导出包含标题', md.includes('# 空洞骑士·校验失败'), md.slic
 check('导出包含正文', md.includes('落盘校验未通过'));
 check('导出包含追问', md.includes('那怎么恢复备份？'));
 
+// ---- 6b) 重新诊断：replaceTurns 用新结论替换旧轮次（服务端与 UI 一致） ----
+store.appendAiHistory({
+  sessionId: created.id,
+  context: { gameName: '空洞骑士' },
+  question: '重新分析',
+  answer: '重新诊断的新结论',
+  model: 'gpt-x',
+  replaceTurns: true,
+});
+const replaced = store.getAiHistoryEntry(created.id);
+check('replaceTurns 后轮数回到 1', replaced?.turns?.length === 1, String(replaced?.turns?.length));
+check('replaceTurns 后只保留新结论', replaced?.turns?.[0]?.answer === '重新诊断的新结论', String(replaced?.turns?.[0]?.answer));
+
 // ---- 7) 删除 / 清空 ----
 check('删除返回 true', store.deleteAiHistory(created.id) === true);
 check('删除后不再存在', store.getAiHistoryEntry(created.id) === null);
