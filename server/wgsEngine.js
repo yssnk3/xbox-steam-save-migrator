@@ -38,6 +38,17 @@ function atomicCopyFileSync(src, dest) {
   fs.renameSync(tmp, dest);
 }
 
+/**
+ * Undo a staged WGS write: drop uncommitted temp files and restore every
+ * original blob from its rollback copy. Used when staging or commit fails.
+ */
+function rollbackStaged(staged) {
+  for (const s of staged) {
+    try { if (fs.existsSync(s.tmp)) fs.unlinkSync(s.tmp); } catch {}
+    try { if (fs.existsSync(s.bak)) fs.renameSync(s.bak, s.final); } catch {}
+  }
+}
+
 // Utility: Compute MD5 hex digest of a file.
 function fileMd5(filePath) {
   return crypto.createHash('md5').update(fs.readFileSync(filePath)).digest('hex');
@@ -537,6 +548,11 @@ export function updateWgsInPlace(inputFiles, targetWgsFolderPath, options = {}) 
   const usedSources = new Set();
   const updated = [];
   const skippedContainers = [];
+  // Two-phase commit: stage every blob (plus a rollback copy of its original
+  // bytes) first, then flip them all into place. A failure anywhere leaves the
+  // target byte-identical instead of half-migrated.
+  const staged = [];
+  const touchedContainers = [];
 
   for (const container of parsed.containers) {
     const dir = path.join(targetWgsFolderPath, container.guidHex);
@@ -555,9 +571,22 @@ export function updateWgsInPlace(inputFiles, targetWgsFolderPath, options = {}) 
       let src = findSourceForLogicalName(m.logicalFileName, sources, sourcesByCore);
       if (!src) src = findSourceForLogicalName(container.containerName, sources, sourcesByCore);
       if (!src) continue;
-      if (!dryRun) {
-        atomicCopyFileSync(src.filePath, m.blobPath);
-        try { fs.utimesSync(m.blobPath, now, now); } catch {}
+
+      let writtenSize;
+      if (dryRun) {
+        writtenSize = fs.statSync(src.filePath).size;
+      } else {
+        const tmp = `${m.blobPath}.stage.${process.pid}`;
+        const bak = `${m.blobPath}.rollback.${process.pid}`;
+        try {
+          if (fs.existsSync(m.blobPath)) fs.copyFileSync(m.blobPath, bak);
+          fs.copyFileSync(src.filePath, tmp);
+        } catch (err) {
+          rollbackStaged(staged);
+          throw new Error(`暂存存档字节失败（${container.containerName}/${m.logicalFileName}）：${err.message}`);
+        }
+        staged.push({ tmp, final: m.blobPath, bak });
+        writtenSize = fs.statSync(tmp).size;
       }
       usedSources.add(src.fileName.toLowerCase());
       updated.push({
@@ -565,25 +594,15 @@ export function updateWgsInPlace(inputFiles, targetWgsFolderPath, options = {}) 
         logicalFileName: m.logicalFileName,
         sourceFileName: src.fileName,
         blobPath: m.blobPath,
-        // dryRun reports the SOURCE size/md5 (nothing is written yet); a real
-        // write reports the on-disk blob that the copy just produced.
-        size: dryRun ? fs.statSync(src.filePath).size : (fs.existsSync(m.blobPath) ? fs.statSync(m.blobPath).size : 0),
+        size: writtenSize,
         srcMd5: fileMd5(src.filePath),
       });
       touched = true;
     }
 
-    if (touched && !dryRun) {
-      // H-03: refresh the FILETIME the cloud compares, plus manifest/dir mtimes.
-      if (container.filetimeOffset >= 0) {
-        patched.writeBigInt64LE(filetime, container.filetimeOffset);
-      }
-      try {
-        const manifest = fs.readdirSync(dir).find(e => /^container\.\d+$/i.test(e));
-        if (manifest) fs.utimesSync(path.join(dir, manifest), now, now);
-      } catch {}
-      try { fs.utimesSync(dir, now, now); } catch {}
-    } else if (touched === false) {
+    if (touched) {
+      if (!dryRun) touchedContainers.push({ container, dir });
+    } else {
       skippedContainers.push({
         container: container.containerName,
         logicalFiles: mapped.map(m => m.logicalFileName),
@@ -592,13 +611,41 @@ export function updateWgsInPlace(inputFiles, targetWgsFolderPath, options = {}) 
     }
   }
 
-  // Write the patched index atomically so a crash can't truncate it.
-  // dryRun leaves the target untouched entirely.
   if (!dryRun) {
-    const tmpIndex = indexPath + '.tmp.' + process.pid;
-    fs.writeFileSync(tmpIndex, patched);
-    fs.renameSync(tmpIndex, indexPath);
-    try { fs.utimesSync(indexPath, now, now); } catch {}
+    try {
+      // Commit phase 1: all blobs land at once.
+      for (const s of staged) {
+        fs.renameSync(s.tmp, s.final);
+        try { fs.utimesSync(s.final, now, now); } catch {}
+      }
+      // Commit phase 2: refresh FILETIME, keep the recorded container size in
+      // sync with the bytes that actually landed, then write the index atomically.
+      for (const { container, dir } of touchedContainers) {
+        if (container.filetimeOffset >= 0) {
+          patched.writeBigInt64LE(filetime, container.filetimeOffset);
+        }
+        // NOTE: real Xbox v14 containers.index carries size = 0 for every
+        // container (verified against this machine's real WGS data). Do NOT
+        // "helpfully" rewrite it with the blob byte count — that would corrupt
+        // a field the game/cloud uses as-is. Preserve the original bytes.
+        try {
+          const manifest = fs.readdirSync(dir).find(e => /^container\.\d+$/i.test(e));
+          if (manifest) fs.utimesSync(path.join(dir, manifest), now, now);
+        } catch {}
+        try { fs.utimesSync(dir, now, now); } catch {}
+      }
+      const tmpIndex = indexPath + '.tmp.' + process.pid;
+      fs.writeFileSync(tmpIndex, patched);
+      fs.renameSync(tmpIndex, indexPath);
+      try { fs.utimesSync(indexPath, now, now); } catch {}
+      // Success — rollback copies are no longer needed.
+      for (const s of staged) {
+        try { if (fs.existsSync(s.bak)) fs.unlinkSync(s.bak); } catch {}
+      }
+    } catch (err) {
+      rollbackStaged(staged);
+      throw new Error(`写入 WGS 失败，已回滚到移植前字节：${err.message}`);
+    }
   }
 
   // Split leftovers: version-suffixed history backups are expected to have no
