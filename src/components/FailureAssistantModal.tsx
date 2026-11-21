@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Sparkles, Loader2, AlertTriangle, RefreshCw, Settings as SettingsIcon, FileWarning, PanelRightOpen } from 'lucide-react';
 import { FailureContext, AiExplanation, AiHistoryItem, AiTurn } from '../types';
-import { explainFailureApi, fetchSettings, fetchAiHistory, fetchAiHistoryEntry, deleteAiHistoryApi } from '../services/api';
+import { explainFailureApi, fetchSettings, fetchAiHistory, fetchAiHistoryEntry, deleteAiHistoryApi, restoreBackupAutoApi } from '../services/api';
 import { AiConversation } from './AiTurnView';
 import { useToast } from './Toast';
 
@@ -40,6 +40,8 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const [history, setHistory] = useState<AiHistoryItem[]>([]);
   // 服务端落盘的会话 id —— 搬去 AI 诊断页时直接续接同一个会话
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreArmed, setRestoreArmed] = useState(false);
   // 自动分析只跑一次；用 ref 让上面的 effect 能调用后面定义的 runExplain
   const autoRanRef = useRef(false);
   const runExplainRef = useRef<((question?: string) => Promise<void>) | null>(null);
@@ -147,6 +149,23 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
   const verify = context.verify;
   const badFiles = verify?.files?.filter(f => f.size === 0 || f.md5Match === false) || [];
   const badBlobs = verify?.blobs?.filter(b => !b.exists || !b.sizeOk) || [];
+
+  const handleOneClickRestore = async () => {
+    if (!context.backupPath || restoring) return;
+    // Two-step inline confirmation — destructive enough to require an explicit
+    // second click, without a native window.confirm breaking the UI language.
+    if (!restoreArmed) { setRestoreArmed(true); return; }
+    setRestoring(true);
+    try {
+      await restoreBackupAutoApi(context.backupPath);
+      toast('已还原到本次移植前的备份，请进游戏读档确认', 'success');
+    } catch (e: any) {
+      toast(`还原失败：${e.message}`, 'error');
+    } finally {
+      setRestoring(false);
+      setRestoreArmed(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-[rgba(15,15,15,0.6)]" onClick={onClose} role="dialog" aria-modal="true">
@@ -381,10 +400,25 @@ const FailureAssistantModal: React.FC<FailureAssistantModalProps> = ({
 
         {/* Footer */}
         <footer className="px-5 py-3 border-t border-ink-borderSoft flex items-center justify-between gap-3 shrink-0">
-          <button onClick={onGotoBackups} className="text-[12px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1.5">
-            <CornerIcon />
-            查看备份并还原
-          </button>
+          <div className="flex items-center gap-4 flex-wrap">
+            {context.backupPath && (
+              <button
+                onClick={handleOneClickRestore}
+                disabled={restoring}
+                title={`还原到 ${context.backupFileName || context.backupPath}`}
+                className={`text-[12px] transition-colors flex items-center gap-1.5 disabled:opacity-50 ${
+                  restoreArmed ? 'text-ink-danger font-semibold' : 'text-ink-muted hover:text-ink-text'
+                }`}
+              >
+                <RefreshCw className={`w-3 h-3 ${restoring ? 'animate-spin' : ''}`} />
+                {restoring ? '还原中…' : restoreArmed ? '再次点击确认还原' : '一键还原本次备份'}
+              </button>
+            )}
+            <button onClick={onGotoBackups} className="text-[12px] text-ink-muted hover:text-ink-text transition-colors flex items-center gap-1.5">
+              <CornerIcon />
+              查看备份并还原
+            </button>
+          </div>
           <button onClick={onClose} className="btn-ghost px-3 py-1.5 text-[12px]">
             关闭
           </button>
