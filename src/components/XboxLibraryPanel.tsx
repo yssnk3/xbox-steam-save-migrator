@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Library, Play, RefreshCw, Search, CloudOff, CloudUpload, Loader2 } from 'lucide-react';
 import { XboxInstalledGame, XboxCloudSyncStopResult } from '../types';
-import { fetchXboxLibrary, launchXboxGame, checkXboxGameRunning, stopXboxCloudSync } from '../services/api';
+import { fetchXboxLibrary, launchXboxGame, checkXboxGameRunning, stopXboxCloudSync, getXboxCloudSyncStatus } from '../services/api';
 import { useToast } from './Toast';
 import { ConfirmDialog, ConfirmDialogConfig } from './ConfirmDialog';
 
@@ -45,6 +45,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
 
  const [stopping, setStopping] = useState(false);
  const [stopResult, setStopResult] = useState<XboxCloudSyncStopResult | null>(null);
+ const [cloudStage, setCloudStage] = useState('');
 
  const [confirmConfig, setConfirmConfig] = useState<ConfirmDialogConfig | null>(null);
  const confirmResolve = useRef<((v: boolean) => void) | null>(null);
@@ -61,9 +62,10 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
  const r = await checkXboxGameRunning(game.installLocation);
  if (r.running) {
  const realGameUp = r.matchedNames.some(n => !/gamelaunchhelper/i.test(n));
- if (realGameUp || helperOnlyStreak >= 8) return 'running';
- helperOnlyStreak++; // 只有启动助手在跑 —— 可能停滞，多等几轮
- continue;
+        if (realGameUp) return 'running';
+        helperOnlyStreak++; // 只有启动助手在跑 —— 可能停滞
+        if (helperOnlyStreak >= 8) return 'stalled'; // let the caller retry once
+        continue;
  }
  } catch { /* 网络抖动，继续重试 */ }
  }
@@ -123,7 +125,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
  const handleUploadCloud = useCallback(async (game: XboxInstalledGame) => {
  const ok = await showConfirm({
  title: `上传云存档 · ${game.displayName}`,
- message: 'Xbox 云存档没有官方上传接口，同步只在游戏会话内发生。将为你启动游戏：进入游戏后等待「同步存档」提示完成，然后正常退出游戏。工具会在游戏退出后确认上传。',
+ message: 'Xbox 云存档没有官方上传接口，同步只在游戏会话内发生。将为你启动游戏：进入游戏后等待「同步存档」提示完成，然后正常退出游戏。\n\n⚠️ 覆盖风险：本工具无法读取 Xbox 云端状态，"游戏已退出"只代表本地会话结束，不代表云端已写入。若此时另一端仍有旧档并触发同步，可能反向覆盖本地刚移植的存档。上传后请务必在另一台设备验证读档。',
  confirmLabel: '启动游戏并监控',
  variant: 'default',
  });
@@ -148,8 +150,8 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
  toast(`${game.displayName} 已启动，请等待游戏内「同步存档」完成后退出`, 'info');
  const exited = await pollUntilExited(game);
  if (exited) {
- toast(`${game.displayName} 已退出，云存档上传应已完成，可在另一台设备验证`, 'success');
- onAddLog(`云存档上传：${game.displayName} 已退出，同步周期结束`, 'success');
+ toast(`${game.displayName} 已退出：仅确认本地会话结束，云端是否写入尚未验证，请在另一台设备读档确认`, 'warning');
+ onAddLog(`云存档上传：${game.displayName} 本地会话已结束（云端写入未验证）`, 'warning');
  } else {
  toast(`${game.displayName} 长时间未退出，已停止监控（不影响游戏）`, 'warning');
  onAddLog(`云存档上传：${game.displayName} 监控超时`, 'warning');
@@ -166,25 +168,41 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
  const handleStopCloudSync = useCallback(async () => {
  setStopping(true);
  setStopResult(null);
+ setCloudStage('准备中…');
  try {
- const r = await stopXboxCloudSync();
+ // The server runs the long task asynchronously; poll its real stage instead
+ // of blocking the renderer for up to 30s on a single HTTP request.
+ await stopXboxCloudSync();
+ for (let i = 0; i < 80; i++) {
+ const p = await getXboxCloudSyncStatus();
+ setCloudStage(p.stage);
+ if (p.done) {
+ if (p.error) throw new Error(p.error);
+ const r = p.result!;
  setStopResult(r);
  const parts: string[] = [];
  parts.push(r.xboxAppClosed ? 'Xbox 应用已关闭' : 'Xbox 应用未在运行');
  if (r.servicesStopped.length) parts.push(`服务已停止：${r.servicesStopped.join(', ')}`);
  if (r.servicesFailed.length) parts.push(`服务停止失败（需管理员）：${r.servicesFailed.join(', ')}`);
  if (r.gamesRunning.length) parts.push(`注意：仍有游戏进程在运行：${r.gamesRunning.join(', ')}`);
- toast('云存档同步防护已执行', 'success');
- onAddLog(`停止云同步：${parts.join('；')}`, 'success');
+ const partial = r.servicesFailed.length > 0 || r.xboxAppStillRunning.length > 0 || r.gamesRunning.length > 0;
+ toast(partial ? '云同步防护已执行，但有未完成项' : '云存档同步防护已执行', partial ? 'warning' : 'success');
+ onAddLog(`停止云同步：${parts.join('；')}`, partial ? 'warning' : 'success');
  if (r.xboxAppStillRunning.length > 0) {
  toast(`部分进程未能关闭：${r.xboxAppStillRunning.join(', ')}，建议手动退出`, 'warning');
  }
+ return;
+ }
+ await sleep(500);
+ }
+ throw new Error('云同步防护超时（40 秒），请查看日志');
  } catch (err) {
  const msg = err instanceof Error ? err.message : String(err);
  toast(`停止云同步失败：${msg}`, 'error');
  onAddLog(`停止云同步失败：${msg}`, 'error');
  } finally {
  setStopping(false);
+ setCloudStage('');
  }
  }, [toast, onAddLog]);
 
@@ -212,9 +230,10 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
  {stopping ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CloudOff className="w-3 h-3" />}
  {stopping ? '执行中...' : '停止云同步'}
  </button>
+ {cloudStage && <span className="text-[12px] text-ink-muted self-center">{cloudStage}</span>}
  </div>
         <p className="t-meta">
-          关闭 Xbox 应用与后台组件并尝试停止 GamingServices，防止移植后被云端旧档覆盖
+          临时关闭 Xbox 应用与后台组件并尝试停止 GamingServices，降低移植后被云端旧档覆盖的概率。注意：服务可能被系统自动重启、已排队上传不会撤销；移植后首次启动遇到冲突仍必须选「使用本地存档」
         </p>
  {stopResult && (
  <div className="text-[12px] font-mono text-ink-muted pl-3 border-l border-ink-border space-y-1">
@@ -314,7 +333,7 @@ const XboxLibraryPanel: React.FC<XboxLibraryPanelProps> = ({
  <button
  onClick={() => handleUploadCloud(game)}
  disabled={isUploading || launching === game.pfn}
- title="启动游戏触发云同步上传，退出后完成"
+ title="启动游戏触发云同步；工具只能确认本地会话结束，无法验证云端写入，需在另一台设备确认"
  className="px-2.5 py-1 text-[12px] btn-ghost disabled:opacity-40 flex items-center gap-1"
  >
  <CloudUpload className="w-3 h-3" />
