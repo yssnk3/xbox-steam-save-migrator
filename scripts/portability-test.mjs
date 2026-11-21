@@ -191,8 +191,10 @@ for (const g of games) {
     ? ok('容器名集合未变') : fail('容器名集合被改动');
   eq(before.containers.map(x => x.guid), after.containers.map(x => x.guid))
     ? ok('容器 GUID 未变') : fail('容器 GUID 被改动');
+  // v14 containers.index stores size = 0 for real Xbox saves; the writer must
+  // preserve it verbatim rather than recompute it from blob sizes.
   eq(before.containers.map(x => [x.seq, x.size]), after.containers.map(x => [x.seq, x.size]))
-    ? ok('seq / size 字段未被改写') : fail('seq / size 字段被改写');
+    ? ok('seq / size 字段未变') : fail('seq / size 字段被改写');
   eq(before.indexBytes, after.indexBytes)
     ? ok('containers.index 长度未变') : fail('containers.index 长度被改动');
   eq(
