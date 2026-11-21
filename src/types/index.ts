@@ -41,8 +41,8 @@ export interface VerifyReport {
     original: string;
     size: number;
     path: string;
-    /** true = on-disk MD5 matches source blob; false = mismatch; 'n/a' = no source hash to compare. */
-    md5Match?: boolean | 'n/a';
+    /** true = on-disk MD5 matches the source; false = mismatch; 'unchecked' = no comparison was possible. */
+    md5Match?: boolean | 'unchecked';
   }[];
   containers?: number;
   indexExists?: boolean;
@@ -52,9 +52,11 @@ export interface VerifyReport {
     source?: string;
     exists: boolean;
     sizeOk: boolean;
-    md5Match?: boolean | 'n/a';
+    md5Match?: boolean | 'unchecked';
     blobPath?: string;
   }[];
+  /** True when at least one landed item had no source hash to compare — grade as needs-review. */
+  hashUnchecked?: boolean;
   /** 'in-place' preserved the game's own container structure; 'rebuild' created it. */
   mode?: 'in-place' | 'rebuild';
   /** Xbox containers deliberately not written (game backups, or no matching Steam file). */
@@ -121,6 +123,9 @@ export interface FailureContext {
   targetPath?: string | null;
   verify?: VerifyReport | null;
   warnings?: string[];
+  /** 本次操作自动生成的备份（若已创建）——失败后可一键回滚到它。 */
+  backupPath?: string | null;
+  backupFileName?: string | null;
 }
 
 export interface AiSettings {
@@ -165,6 +170,8 @@ export interface AiTurn {
   answer: string;
   model: string | null;
   at: string;
+  usage?: AiUsage | null;
+  contextTruncated?: boolean;
 }
 
 /** AI 诊断会话（一次失败 + 多轮问答） */
@@ -202,9 +209,18 @@ export interface AppSettings {
   storePath: string;
 }
 
+export interface AiUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
 export interface AiExplanation {
   text: string;
   model: string;
+  usage?: AiUsage | null;
+  /** Older turns were dropped from the prompt to keep the context within budget. */
+  contextTruncated?: boolean;
   /** 服务端落盘后的会话 id（追问时用于续接同一会话） */
   sessionId?: string | null;
 }
