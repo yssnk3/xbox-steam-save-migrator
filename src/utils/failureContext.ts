@@ -11,7 +11,11 @@ import { ApiError } from '../services/api';
  * structure regardless of which path produced the failure.
  */
 export function buildFailureContext(
-  source: { error: unknown } | { verify?: VerifyReport | null; message?: string },
+  source: { error: unknown } | {
+    verify?: VerifyReport | null;
+    message?: string;
+    backup?: { backupPath?: string; backupFileName?: string } | null;
+  },
   opts: {
     game?: GameItem | null;
     gameName?: string | null;
@@ -30,6 +34,8 @@ export function buildFailureContext(
     steamPath: opts.game?.steamSavePath || null,
     xboxPath: opts.game?.xboxWgsPath || null,
     warnings: opts.warnings || [],
+    backupPath: 'backup' in source ? source.backup?.backupPath || null : null,
+    backupFileName: 'backup' in source ? source.backup?.backupFileName || null : null,
   };
 
   // Thrown error path

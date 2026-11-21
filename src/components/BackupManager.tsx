@@ -83,7 +83,7 @@ export const BackupManager: React.FC<BackupManagerProps> = ({ onAddLog }) => {
   const handleAutoRestore = async (item: BackupItem) => {
     setConfirmConfig({
       title: '还原到原位置',
-      message: `即将把 ${item.fileName} 解压回它备份时的目录：\n\n${item.restoreTargetPath}\n\n这会覆盖该目录中的同名文件，等同于撤销那一次移植。是否继续？`,
+      message: `即将把 ${item.fileName} 解压回它备份时的目录：\n\n${item.restoreTargetPath}\n\n这会覆盖该目录中的同名文件，等同于撤销那一次移植。\n\n⚠️ 还原后若游戏自动同步云端旧档，可能立刻再次覆盖；首次启动遇到云冲突请选择「使用本地存档」。是否继续？`,
       confirmLabel: '还原',
       variant: 'warning',
     });

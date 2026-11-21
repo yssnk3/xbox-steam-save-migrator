@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import archiver from 'archiver';
 import { execFile } from 'child_process';
 import { getBackupRoot } from './dataDir.js';
@@ -123,18 +124,90 @@ function assertBackupPath(filePath) {
   return resolved;
 }
 
-/** Expand a ZIP into a target directory (Windows Expand-Archive). */
+function fileMd5(filePath) {
+  return crypto.createHash('md5').update(fs.readFileSync(filePath)).digest('hex');
+}
+
+/** All files below root, with paths relative to base (separator-normalized). */
+function listFilesRecursive(root, base = root, out = []) {
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const abs = path.join(root, entry.name);
+    if (entry.isDirectory()) listFilesRecursive(abs, base, out);
+    else if (entry.isFile()) out.push({ rel: path.relative(base, abs), abs });
+  }
+  return out;
+}
+
+/**
+ * Restore a ZIP into a target directory — safely.
+ * Expand into a staging folder first, then atomic-replace each file, verify
+ * the on-disk bytes against the staging copy, and move files that were NOT in
+ * the backup into a timestamped quarantine folder instead of deleting them.
+ * The old behavior (Expand-Archive -Force directly into the target) could
+ * leave a half-restored tree and silently keep files from a later session.
+ */
 function expandInto(zipPath, target) {
   if (process.platform !== 'win32') {
     throw new Error('备份恢复目前需要 Windows 系统的 Expand-Archive');
   }
   return new Promise((resolve, reject) => {
+    const stage = path.join(
+      path.dirname(target),
+      `.restore-stage-${path.basename(target)}-${Date.now()}-${process.pid}`,
+    );
+    fs.mkdirSync(stage, { recursive: true });
+    const esc = (p) => p.replace(/'/g, "''");
     execFile('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-Command',
-      `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${target.replace(/'/g, "''")}' -Force`
+      `Expand-Archive -LiteralPath '${esc(zipPath)}' -DestinationPath '${esc(stage)}' -Force`,
     ], { windowsHide: true }, (error, stdout, stderr) => {
-      if (error) return reject(new Error(stderr.trim() || error.message));
-      resolve({ backupPath: zipPath, targetFolderPath: target });
+      if (error) {
+        try { fs.rmSync(stage, { recursive: true, force: true }); } catch {}
+        return reject(new Error(stderr.trim() || error.message));
+      }
+      try {
+        fs.mkdirSync(target, { recursive: true });
+        const fromZip = listFilesRecursive(stage);
+        if (fromZip.length === 0) throw new Error('备份压缩包中没有可还原的文件');
+        const zipRel = new Set(fromZip.map((f) => f.rel));
+
+        for (const f of fromZip) {
+          const dest = path.join(target, f.rel);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          const tmp = `${dest}.restore-tmp.${process.pid}`;
+          fs.copyFileSync(f.abs, tmp);
+          fs.renameSync(tmp, dest);
+        }
+        for (const f of fromZip) {
+          if (fileMd5(path.join(target, f.rel)) !== fileMd5(f.abs)) {
+            throw new Error(`还原校验失败：${f.rel}`);
+          }
+        }
+
+        const extras = listFilesRecursive(target).filter(
+          (f) => !zipRel.has(f.rel) && !f.rel.split(path.sep)[0].startsWith('.restore-extras-'),
+        );
+        const quarantineDir = extras.length
+          ? `.restore-extras-${new Date().toISOString().replace(/[:.]/g, '-')}`
+          : null;
+        for (const f of extras) {
+          const dest = path.join(target, quarantineDir, f.rel);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          fs.renameSync(f.abs, dest);
+        }
+
+        resolve({
+          backupPath: zipPath,
+          targetFolderPath: target,
+          restored: fromZip.length,
+          quarantined: extras.length,
+          quarantineDir,
+        });
+      } catch (err) {
+        reject(err);
+      } finally {
+        try { fs.rmSync(stage, { recursive: true, force: true }); } catch {}
+      }
     });
   });
 }

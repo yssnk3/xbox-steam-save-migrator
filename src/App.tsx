@@ -118,11 +118,11 @@ export const App: React.FC = () => {
  addLog('[写入方式] Xbox 端此前无存档结构，已新建容器（容器名按文件名推断，游戏可能读不到）', 'warning');
  }
  (v.files || []).forEach((f: any) => {
- const hashNote = f.md5Match === true ? '（MD5 校验通过）' : f.md5Match === false ? '（⚠️ MD5 校验不一致）' : '';
+ const hashNote = f.md5Match === true ? '（MD5 校验通过）' : f.md5Match === false ? '（⚠️ MD5 校验不一致）' : '（MD5 未校验）';
  addLog(`✅ 已写入 ${f.name} (${f.size}B) ${f.original && f.original !== f.name ? `← ${f.original}` : ''} → ${f.path}${hashNote}`, 'success');
  });
  (v.blobs || []).forEach((b: any) => {
- const hashNote = b.md5Match === true ? '（MD5 校验通过）' : b.md5Match === false ? '（⚠️ MD5 不一致）' : '';
+ const hashNote = b.md5Match === true ? '（MD5 校验通过）' : b.md5Match === false ? '（⚠️ MD5 不一致）' : '（MD5 未校验）';
  const src = b.source ? ` ← ${b.source}` : '';
  addLog(`✅ Xbox 容器已写入 ${b.name}${src} (${b.exists && b.sizeOk ? '成功' : b.exists ? '大小不符' : '缺失'})${hashNote}`, 'success');
  });
@@ -285,19 +285,29 @@ export const App: React.FC = () => {
   }, [searchTarget]);
 
  // Shared migration confirm — unified across all three migration entry points.
+ const recommendedDirectionFor = (g?: GameItem | null): 'xbox_to_steam' | 'steam_to_xbox' | null => {
+ if (!g) return null;
+ const s = g.steamLastModified ? new Date(g.steamLastModified).getTime() : 0;
+ const x = g.xboxLastModified ? new Date(g.xboxLastModified).getTime() : 0;
+ if (x > s + 5000) return 'xbox_to_steam';
+ if (s > x + 5000) return 'steam_to_xbox';
+ return null;
+ };
+
  const confirmMigrate = useCallback(async (info: {
  dirText: string;
  gameName?: string;
  direction: 'xbox_to_steam' | 'steam_to_xbox';
+ againstRecommendation?: boolean;
  }): Promise<boolean> => {
- const against = false; // (manual panel has no recommendation to compare against)
+ const against = Boolean(info.againstRecommendation);
  const target = info.gameName ? `《${info.gameName}》` : '所选存档';
- const message = `即将为 ${target} 执行 ${info.dirText} 存档移植。\n\n系统将在覆盖前自动创建 ZIP 压缩备份。${against ? '\n\n⚠️ 您选择的移植方向与推荐相反，可能导致较新的存档被覆盖！' : ''}`;
+ const message = `即将为 ${target} 执行 ${info.dirText} 存档移植。\n\n系统将在覆盖前自动创建 ZIP 压缩备份。${against ? '\n\n⚠️ 您选择的移植方向与推荐相反，可能导致较新的存档被较旧的存档覆盖！' : ''}\n\n⚠️ 云同步覆盖风险：移植后首次启动游戏若弹出云存档冲突选择框，必须选「使用本地存档」；选成「使用云端存档」会立刻用旧档覆盖刚移植的进度。`;
  return showConfirm({
  title: `确认${info.dirText}存档移植`,
  message,
  confirmLabel: '确认移植',
- variant: 'warning',
+ variant: against ? 'danger' : 'warning',
  });
  }, [showConfirm]);
 
@@ -321,7 +331,7 @@ export const App: React.FC = () => {
  (recommendation === 'xbox_to_steam' && direction === 'steam_to_xbox') ||
  (recommendation === 'steam_to_xbox' && direction === 'xbox_to_steam');
 
- const confirmMessage = `即将为《${game.name}》执行 ${dirText} 存档移植。\n\n${recommendationReason || '未检测到推荐方向。'}\n\n系统将在覆盖前自动创建 ZIP 压缩备份。${isAgainstRecommendation ? '\n\n⚠️ 警告：您选择的移植方向与智能推荐相反，可能导致较新的存档被较旧的存档覆盖！' : ''}`;
+ const confirmMessage = `即将为《${game.name}》执行 ${dirText} 存档移植。\n\n${recommendationReason || '未检测到推荐方向。'}\n\n系统将在覆盖前自动创建 ZIP 压缩备份。${isAgainstRecommendation ? '\n\n⚠️ 警告：您选择的移植方向与智能推荐相反，可能导致较新的存档被较旧的存档覆盖！' : ''}\n\n⚠️ 云同步覆盖风险：移植后首次启动游戏若弹出云存档冲突选择框，必须选「使用本地存档」；选成「使用云端存档」会立刻用旧档覆盖刚移植的进度。`;
 
  const confirmed = await showConfirm({
  title: `确认${dirText}存档移植`,
@@ -390,7 +400,11 @@ export const App: React.FC = () => {
  const dirText = direction === 'xbox_to_steam' ? 'Xbox ➔ Steam' : 'Steam ➔ Xbox';
 
  // Confirm before executing, consistent with the quick-migrate path.
- const confirmed = await confirmMigrate({ dirText, gameName: game?.name, direction });
+ const recommended = recommendedDirectionFor(game);
+ const confirmed = await confirmMigrate({
+ dirText, gameName: game?.name, direction,
+ againstRecommendation: Boolean(recommended && recommended !== direction),
+ });
  if (!confirmed) return;
 
  beginMigrating();
@@ -587,7 +601,7 @@ export const App: React.FC = () => {
                   code: f.code || null,
                   gameName: f.gameName || null,
                 })
-              : buildFailureContext({ verify: f.verify as any, message: f.message }, {
+              : buildFailureContext({ verify: f.verify as any, message: f.message, backup: f.backup }, {
                   direction: f.direction,
                   stage: 'POST /api/manual/migrate',
                   code: f.code || null,

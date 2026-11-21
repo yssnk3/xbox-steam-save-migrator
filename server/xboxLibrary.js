@@ -1,10 +1,13 @@
-import { execSync, execFileSync, spawn } from 'child_process';
+import { execSync, execFile, spawn } from 'child_process';
+import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { GAME_DATABASE } from './gameDatabase.js';
-import { readAppxManifestInfo } from './gameDetector.js';
+import { readAppxManifestInfo, getXboxPackagesDir } from './gameDetector.js';
 import { checkGameRunning, closePlatformClient } from './processCheck.js';
 import { getDataFilePath } from './dataDir.js';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Xbox Game Pass 游戏库 — 扫描已安装的打包游戏、AUMID 直启、云存档同步控制。
@@ -35,6 +38,7 @@ const SCAN_CACHE_TTL = 10 * 60 * 1000;
 const DISK_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 const CACHE_FILE = getDataFilePath('xbox-library-cache.json');
+let bgRefreshScheduled = false;
 
 /** 读取磁盘缓存；过期返回 null。 */
 function readDiskCache(maxAgeMs) {
@@ -127,7 +131,9 @@ function listExecutableNames(installLocation) {
 
 function hasWgsData(pfn) {
   try {
-    const base = path.join(process.env.LOCALAPPDATA || '', 'Packages', pfn, 'SystemAppData', 'wgs');
+    // Reuse the same resolver as the save scanner so a user-configured
+    // xboxPackagesRoot override is honoured here too.
+    const base = path.join(getXboxPackagesDir(), pfn, 'SystemAppData', 'wgs');
     return fs.existsSync(base);
   } catch {
     return false;
@@ -160,6 +166,16 @@ export function scanXboxLibrary({ refresh = false } = {}) {
     if (disk) {
       scanCache = disk.games;
       scanCacheTime = now;
+      // Stale-while-revalidate: serve the cached list immediately, then refresh
+      // in the background so a 7-day-old cache cannot linger forever without
+      // the user discovering the (slow) manual refresh button.
+      if (!bgRefreshScheduled) {
+        bgRefreshScheduled = true;
+        setTimeout(() => {
+          bgRefreshScheduled = false;
+          try { scanXboxLibrary({ refresh: true }); } catch {}
+        }, 1000);
+      }
       return { games: disk.games, cached: 'disk', savedAt: disk.savedAt };
     }
   }
@@ -246,16 +262,18 @@ export function checkXboxGameRunning(installLocation, extraProcessNames = []) {
  * @returns {{ xboxAppClosed: boolean, xboxAppStillRunning: string[], ftKilled: boolean,
  *             gamesRunning: string[], servicesStopped: string[], servicesFailed: string[], hints: string[] }}
  */
-export function stopCloudSync() {
+export async function stopCloudSync(onProgress = () => {}) {
   const hints = [];
 
-  const closed = closePlatformClient('xbox');
+  onProgress('正在关闭 Xbox 应用…');
+  const closed = await closePlatformClient('xbox');
 
   // XboxPcAppFT.exe — closePlatformClient skips it; kill by image name instead.
+  onProgress('正在清理 XboxPcAppFT 常驻组件…');
   let ftKilled = false;
   try {
-    execFileSync('taskkill', ['/F', '/IM', 'XboxPcAppFT.exe', '/T'], {
-      encoding: 'utf8', timeout: 8000, windowsHide: true, stdio: 'pipe',
+    await execFileAsync('taskkill', ['/F', '/IM', 'XboxPcAppFT.exe', '/T'], {
+      encoding: 'utf8', timeout: 8000, windowsHide: true,
     });
     ftKilled = true;
     hints.push('XboxPcAppFT.exe 已击杀，但它由系统看护进程自动复活，属预期行为，不影响本次防护');
@@ -271,8 +289,9 @@ export function stopCloudSync() {
   const servicesStopped = [];
   const servicesFailed = [];
   for (const svc of ['GamingServicesNet', 'GamingServices']) {
+    onProgress(`正在停止 ${svc} 服务…`);
     try {
-      execSync(`net stop ${svc} /y`, { encoding: 'utf8', timeout: 15000, windowsHide: true });
+      await execFileAsync('net', ['stop', svc, '/y'], { encoding: 'utf8', timeout: 15000, windowsHide: true });
       servicesStopped.push(svc);
     } catch (e) {
       servicesFailed.push(svc);
@@ -283,6 +302,7 @@ export function stopCloudSync() {
     }
   }
 
+  onProgress('完成');
   return {
     xboxAppClosed: closed.attempted,
     xboxAppStillRunning: closed.stillRunning,

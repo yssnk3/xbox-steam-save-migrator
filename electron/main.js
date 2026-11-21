@@ -56,7 +56,7 @@ function startBackendServer() {
 }
 
 function tryListen(serverApp, port, attempt) {
-  const candidate = serverApp.listen(port, () => {
+  const candidate = serverApp.listen(port, '127.0.0.1', () => {
     server = candidate;
     console.log(`[Electron] Embedded Server running on http://localhost:${port}`);
     createWindow(port);

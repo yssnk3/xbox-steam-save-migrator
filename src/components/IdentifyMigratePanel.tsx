@@ -10,7 +10,7 @@ interface IdentifyMigratePanelProps {
  onMigrated: () => void;
  isMigrating: boolean;
  /** App-level confirm dialog; returns true if the user confirmed. */
- onConfirmMigrate: (info: { dirText: string; gameName?: string; direction: 'xbox_to_steam' | 'steam_to_xbox' }) => Promise<boolean>;
+ onConfirmMigrate: (info: { dirText: string; gameName?: string; direction: 'xbox_to_steam' | 'steam_to_xbox'; againstRecommendation?: boolean }) => Promise<boolean>;
  /** Sink busy state to App so ALL migration buttons disable during this one. */
  onMigratingChange: (v: boolean) => void;
   /** Optional: open the read-only portability test (预演) for the identified game. */
@@ -25,6 +25,8 @@ interface IdentifyMigratePanelProps {
     gameName?: string | null;
     /** 后端错误码（PLATFORM_RUNNING / BYTE_INCOMPATIBLE 等） */
     code?: string | null;
+    /** 本次操作自动生成的备份，供失败弹窗一键回滚 */
+    backup?: { backupPath?: string; backupFileName?: string } | null;
   }) => void;
 }
 
@@ -106,11 +108,11 @@ function logVerifyReport(v: VerifyReport | undefined, log: LogFn) {
  log('[写入方式] Xbox 端此前无存档结构，已新建容器（容器名按文件名推断，游戏可能读不到）', 'warning');
  }
  (v.files || []).forEach(f => {
- const hashNote = f.md5Match === true ? '（MD5 校验通过）' : f.md5Match === false ? '（⚠️ MD5 校验不一致）' : '';
+ const hashNote = f.md5Match === true ? '（MD5 校验通过）' : f.md5Match === false ? '（⚠️ MD5 校验不一致）' : '（MD5 未校验）';
  log(`✅ 已写入 ${f.name} (${f.size}B)${f.original && f.original !== f.name ? ` ← ${f.original}` : ''} → ${f.path}${hashNote}`, 'success');
  });
  (v.blobs || []).forEach(b => {
- const hashNote = b.md5Match === true ? '（MD5 校验通过）' : b.md5Match === false ? '（⚠️ MD5 不一致）' : '';
+ const hashNote = b.md5Match === true ? '（MD5 校验通过）' : b.md5Match === false ? '（⚠️ MD5 不一致）' : '（MD5 未校验）';
  const src = b.source ? ` ← ${b.source}` : '';
  log(`✅ Xbox 容器已写入 ${b.name}${src} (${b.exists && b.sizeOk ? '成功' : b.exists ? '大小不符' : '缺失'})${hashNote}`, 'success');
  });
@@ -349,7 +351,12 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  }
 
  const dirText = chosen === 'xbox_to_steam' ? 'Xbox ➔ Steam' : 'Steam ➔ Xbox';
- const confirmed = await onConfirmMigrate({ dirText, gameName: topMatch?.name, direction: chosen });
+ const confirmed = await onConfirmMigrate({
+ dirText,
+ gameName: topMatch?.name,
+ direction: chosen,
+ againstRecommendation: Boolean(recommended && recommended !== chosen),
+ });
  if (!confirmed) return;
 
  setOneClickBusy(true);
@@ -372,7 +379,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
       } else {
         onAddLog(`[移植校验失败] ${res.message}`, 'error');
         toast(outcomeText(outcome, topMatch?.name, res.verify), 'error');
-        onFailure?.({ verify: res.verify, message: res.message, direction: chosen, gameName: topMatch?.name ?? null });
+        onFailure?.({ verify: res.verify, message: res.message, direction: chosen, gameName: topMatch?.name ?? null, backup: res.backup });
       }
 
       // Audit report — same transparency as the main migration path.
@@ -388,6 +395,14 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  } catch (err: any) {
  onAddLog(`[移植失败] ${err.message}`, 'error');
  toast(`移植失败: ${err.message}`, 'error');
+ // Same failure-assistant handoff as the copy / custom routes. PLATFORM_RUNNING
+ // and GAME_RUNNING are exactly the cases the user needs help with.
+ onFailure?.({
+ error: err,
+ direction: chosen,
+ code: (err as any)?.code ?? null,
+ gameName: topMatch?.name ?? null,
+ });
  } finally {
  setOneClickBusy(false);
  onMigratingChange(false);
@@ -426,7 +441,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  const outcome = migrationOutcome(res.verify, null);
  if (outcome === 'success') { onAddLog(`[移植成功] ${res.message}`, 'success'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'success'); }
  else if (outcome === 'needs-review') { onAddLog(`[移植完成·需确认] ${res.message}`, 'warning'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'warning'); }
-      else { onAddLog(`[移植校验失败] ${res.message}`, 'error'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'error'); onFailure?.({ verify: res.verify, message: res.message, direction: `${sourceSide}_to_${targetSide}`, gameName: topMatch?.name ?? null }); }
+      else { onAddLog(`[移植校验失败] ${res.message}`, 'error'); toast(outcomeText(outcome, topMatch?.name, res.verify), 'error'); onFailure?.({ verify: res.verify, message: res.message, direction: `${sourceSide}_to_${targetSide}`, gameName: topMatch?.name ?? null, backup: res.backup }); }
  logVerifyReport(res.verify, onAddLog);
  if (res.warnings && res.warnings.length > 0) {
  res.warnings.forEach((w: string) => { onAddLog(`[安全提醒] ${w}`, 'warning'); toast(w, 'warning'); });
@@ -460,7 +475,10 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  }
  const dirText = direction === 'xbox_to_steam' ? 'Xbox ➔ Steam' : 'Steam ➔ Xbox';
 
- const confirmed = await onConfirmMigrate({ dirText, direction });
+ const confirmed = await onConfirmMigrate({
+ dirText, direction,
+ againstRecommendation: Boolean(recommended && recommended !== direction),
+ });
  if (!confirmed) return;
 
  setBusy(true);
@@ -482,7 +500,7 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
       } else {
         onAddLog(`[移植校验失败] ${res.message}`, 'error');
         toast(outcomeText(outcome, null, res.verify), 'error');
-        onFailure?.({ verify: res.verify, message: res.message, direction, gameName: topMatch?.name ?? null });
+        onFailure?.({ verify: res.verify, message: res.message, direction, gameName: topMatch?.name ?? null, backup: res.backup });
       }
  logVerifyReport(res.verify, onAddLog);
  if (res.warnings && res.warnings.length > 0) {
@@ -739,6 +757,12 @@ export const IdentifyMigratePanel: React.FC<IdentifyMigratePanelProps> = ({ onAd
  </div>
  )}
  </div>
+ </div>
+
+ {/* Cloud-overwrite risk — visible BEFORE the user commits a direction */}
+ <div className="rounded-btn border border-ink-borderSoft bg-ink-elevated px-3 py-2 text-[11px] leading-relaxed text-ink-muted space-y-1">
+ <div>⚠️ 云同步覆盖风险：移植只改本机文件。首次启动游戏若弹出云存档冲突框，必须选「使用本地存档」；选「使用云端存档」会用旧档覆盖刚移植的进度。</div>
+ <div>⚠️ 跨设备风险：另一端若还留着旧档并先触发同步，也可能反向覆盖本机。转移前请在另一端先备份，或先停云同步。</div>
  </div>
 
  {/* Per-game migration warnings, before the user commits a direction */}

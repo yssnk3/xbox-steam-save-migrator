@@ -129,15 +129,19 @@ export function appendAiHistory(entry) {
   const answer = String(entry.answer || '').slice(0, MAX_ANSWER_CHARS);
 
   let session = entry.sessionId ? all.find(s => s.id === entry.sessionId) : null;
+  const newTurn = {
+    question: entry.question ?? null,
+    answer,
+    model: entry.model || null,
+    at: now,
+    usage: entry.usage || null,
+    contextTruncated: Boolean(entry.contextTruncated),
+  };
 
   if (session) {
-    session.turns = session.turns || [];
-    session.turns.push({
-      question: entry.question ?? null,
-      answer,
-      model: entry.model || null,
-      at: now,
-    });
+    // "重新诊断" must clear the old turns on disk too; otherwise the UI
+    // replaces them locally but they reappear on the next page load.
+    session.turns = entry.replaceTurns ? [newTurn] : [...(session.turns || []), newTurn];
     session.updatedAt = now;
   } else {
     session = {
@@ -153,7 +157,7 @@ export function appendAiHistory(entry) {
       updatedAt: now,
       pinned: false,
       context: entry.context || {},
-      turns: [{ question: entry.question ?? null, answer, model: entry.model || null, at: now }],
+      turns: [newTurn],
     };
     all.unshift(session);
   }

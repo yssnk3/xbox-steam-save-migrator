@@ -322,8 +322,20 @@ export async function checkXboxGameRunning(installLocation: string): Promise<{ r
   });
 }
 
-export async function stopXboxCloudSync(): Promise<XboxCloudSyncStopResult> {
+export async function stopXboxCloudSync(): Promise<{ started: boolean }> {
   return apiFetch('/api/xbox/stop-cloud-sync', { method: 'POST' });
+}
+
+export interface CloudSyncProgress {
+  stage: string;
+  at: string | null;
+  done: boolean;
+  result?: XboxCloudSyncStopResult | null;
+  error?: string | null;
+}
+
+export async function getXboxCloudSyncStatus(): Promise<CloudSyncProgress> {
+  return apiFetch('/api/xbox/stop-cloud-sync/status');
 }
 
 // ===== 备份版本化还原 =====
@@ -380,10 +392,15 @@ export async function explainFailureApi(
     question?: string | null;
     /** 会话标题（新建时用） */
     title?: string | null;
+    /** 重新诊断：用本轮结果替换该会话的旧轮次，而不是追加 */
+    replaceTurns?: boolean;
+    /** 取消进行中的请求 */
+    signal?: AbortSignal;
   } = {},
 ): Promise<AiExplanation> {
   return apiFetch('/api/ai/explain-failure', {
     method: 'POST',
+    signal: options.signal,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       context,
@@ -392,6 +409,7 @@ export async function explainFailureApi(
       sessionId: options.sessionId,
       question: options.question,
       title: options.title,
+      replaceTurns: options.replaceTurns,
     }),
   });
 }

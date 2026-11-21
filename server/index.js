@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { exec, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { scanInstalledGames, resolveAppxInfos, readAppxManifestInfo, getXboxPackagesDir } from './gameDetector.js';
 import { extractWgsToFolder, parseContainersIndex, parseContainerFolderFiles, updateWgsInPlace, hasExistingWgsStructure } from './wgsEngine.js';
@@ -61,19 +61,24 @@ function buildVerify(wgsResult, opts = {}) {
   if (opts.files) {
     const files = opts.files;
     const allLanded = files.length > 0 && files.every(f => f.size > 0);
-    const allHashOk = files.every(f => f.md5Match === 'n/a' || f.md5Match === true);
+    // false is a real mismatch and fails verification. 'unchecked' means no
+    // comparison happened: do NOT report it as a pass — surface it so the UI
+    // grades the migration as needs-review instead of success.
+    const allHashOk = files.every(f => f.md5Match !== false);
     return {
       ok: allLanded && allHashOk,
+      hashUnchecked: files.some(f => f.md5Match === 'unchecked'),
       targetPath: opts.targetPath,
       files,
-      note: opts.note || '文件已写入目标目录，且尺寸非 0、内容 MD5 与来源一致。存档能否被游戏读取，需启动游戏读档确认一次（各游戏存档字节格式由游戏自身决定）。'
+      note: opts.note || '文件已写入目标目录且尺寸非 0；MD5 对比结果见每项明细（未校验项不代表一致）。存档能否被游戏读取，需启动游戏读档确认一次（各游戏存档字节格式由游戏自身决定）。'
     };
   }
   if (opts.blobs) {
     const blobs = opts.blobs;
-    const blobsOk = blobs.length > 0 && blobs.every(b => b.exists && b.sizeOk);
+    const blobsOk = blobs.length > 0 && blobs.every(b => b.exists && b.sizeOk && b.md5Match !== false);
     return {
       ok: opts.indexExists && opts.containersCount > 0 && blobsOk,
+      hashUnchecked: blobs.some(b => b.md5Match === 'unchecked'),
       targetPath: opts.targetPath,
       containers: opts.containersCount,
       indexExists: opts.indexExists,
@@ -109,6 +114,56 @@ function migrationRefusalFor(gameRecord) {
     return `该游戏 Xbox(XGP) 端与 Steam 端存档不是同一种字节布局，需先用 ${gameRecord.needsConversionTool} 等外部工具转换，暂不支持直接移植（已阻止写入以保护你的存档）。识别与提取备份功能不受影响。`;
   }
   return null;
+}
+
+/**
+ * Single preflight for EVERY write route: the game itself must be closed and
+ * the client owning the TARGET side's cloud sync must not push its stale state
+ * back over the files we are about to write. Kept in one place so the manual /
+ * copy / identify routes cannot silently bypass the guards used by /api/migrate.
+ * Returns an error descriptor for the route to send, or null when clear.
+ */
+async function preflightWrite({ targetSide, gameName = '', processNames = [] }) {
+  if (processNames.length > 0) {
+    const proc = checkGameRunning(processNames);
+    if (proc.running) {
+      return {
+        status: 409,
+        code: 'GAME_RUNNING',
+        error: `${gameName ? `《${gameName}》` : '游戏'}仍在运行（${proc.matchedNames.join('、')}）。请先完全退出游戏后再执行存档移植。`,
+      };
+    }
+  }
+
+  const platform = checkPlatformClient(targetSide);
+  if (platform.running) {
+    if (targetSide === 'xbox') {
+      const closed = await closePlatformClient('xbox');
+      if (closed.stillRunning.length > 0) {
+        return {
+          status: 409,
+          code: 'PLATFORM_RUNNING',
+          error: `已尝试自动关闭 Xbox 应用但仍有进程未退出（${closed.stillRunning.join('、')}）。${closed.hint ? closed.hint + '。' : '请手动退出 Xbox 应用（右下角托盘图标 → 退出）后'}重试。`,
+        };
+      }
+    } else {
+      return {
+        status: 409,
+        code: 'PLATFORM_RUNNING',
+        error: '检测到 Steam 客户端正在运行。为防止云同步把旧存档覆盖回刚移植的文件，请完全退出 Steam（右下角托盘图标 → 退出）后重试。',
+      };
+    }
+  }
+  return null;
+}
+
+/** Convert a preflight error descriptor into an HTTP response, or do nothing. */
+function sendPreflightError(res, blocked) {
+  if (blocked) {
+    res.status(blocked.status).json({ success: false, code: blocked.code, error: blocked.error });
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -158,10 +213,30 @@ function syncSteamCloudMirrors(landedFiles, steamPath, steamAppId) {
       fs.renameSync(tmp, t.path);
       const now = new Date();
       try { fs.utimesSync(t.path, now, now); } catch {}
-      synced.push({ name: t.name, path: t.path, size: fs.statSync(t.path).size, md5Match: 'n/a', mirror: true });
+      // The mirror is part of the cloud-overwrite defense — verify its bytes
+      // against the landed source instead of reporting a fake "unchecked".
+      let md5Match = 'unchecked';
+      try { md5Match = fileMd5(t.path) === fileMd5(src.path); } catch {}
+      synced.push({ name: t.name, path: t.path, size: fs.statSync(t.path).size, md5Match, mirror: true });
     } catch {}
   }
   return synced;
+}
+
+/**
+ * Every backup goes through here so the `backup.keepCount` setting actually
+ * prunes old archives. Pruning is best-effort: a locked/stale zip must never
+ * fail the migration that just created a fresh backup.
+ */
+async function backupAndPrune(sourceFolderPath, gameId, platform, meta) {
+  const info = await createBackup(sourceFolderPath, gameId, platform, meta);
+  try {
+    const keep = readSettings().backup?.keepCount;
+    if (Number.isFinite(Number(keep)) && Number(keep) > 0) pruneBackups(Number(keep));
+  } catch (err) {
+    console.warn('[backup] prune skipped:', err.message);
+  }
+  return info;
 }
 
 /**
@@ -199,7 +274,7 @@ function writeSteamToXbox(filesInSteamDir, xboxPath, opts = {}) {
   const blobs = r.updated.map(u => {
     const exists = Boolean(u.blobPath && fs.existsSync(u.blobPath));
     const sizeOk = exists && fs.statSync(u.blobPath).size === u.size;
-    let md5Match = 'n/a';
+    let md5Match = 'unchecked';
     if (exists && u.srcMd5) md5Match = fileMd5(u.blobPath) === u.srcMd5;
     return {
       name: `${u.container} / ${u.logicalFileName}`,
@@ -212,9 +287,10 @@ function writeSteamToXbox(filesInSteamDir, xboxPath, opts = {}) {
     };
   });
   const allOk = blobs.length > 0
-    && blobs.every(b => b.exists && b.sizeOk && (b.md5Match === true || b.md5Match === 'n/a'));
+    && blobs.every(b => b.exists && b.sizeOk && b.md5Match !== false);
   const verify = {
     ok: allOk && fs.existsSync(idxPath),
+    hashUnchecked: blobs.some(b => b.md5Match === 'unchecked'),
     targetPath: xboxPath,
     mode: 'in-place',
     containers: r.containersCount,
@@ -281,8 +357,21 @@ function applySteamFileNameNormalization(extracted, targetDir, game) {
 
 const app = express();
 const PORT = Number(process.env.SXSM_PORT) || 3001;
+// Progress of the (potentially 30s) cloud-sync shutdown. The operation runs
+// asynchronously; the UI polls /status instead of freezing on a sync request.
+let cloudSyncProgress = { stage: 'idle', at: null, done: false, result: null, error: null };
 
-app.use(cors());
+// Only same-machine origins may call this API: it can read/write arbitrary
+// save folders and holds the AI API key in settings. Binding to all interfaces
+// (or allowing any CORS origin) exposed those capabilities to the LAN.
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // same-origin / non-browser clients
+    return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+      ? cb(null, true)
+      : cb(new Error('Cross-origin request blocked'));
+  },
+}));
 app.use(express.json());
 
 /**
@@ -392,7 +481,7 @@ app.post('/api/open-folder', (req, res) => {
   }
 
   try {
-    exec(`explorer.exe "${folderPath}"`);
+    execFile('explorer.exe', [folderPath]);
     res.json({ success: true, message: '已在 Windows 资源管理器中打开该目录' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -598,11 +687,22 @@ app.post('/api/xbox/check-running', (req, res) => {
 // API: Best-effort cloud-sync kill switch — close the Xbox app suite, kill
 // XboxPcAppFT, try to stop GamingServices (admin-gated, failure is tolerated).
 app.post('/api/xbox/stop-cloud-sync', (req, res) => {
-  try {
-    res.json({ success: true, ...stopCloudSync() });
-  } catch (err) {
-    res.status(500).json({ success: false, error: friendlyError(err) });
-  }
+  cloudSyncProgress = { stage: '准备中…', at: new Date().toISOString(), done: false, result: null, error: null };
+  const onProgress = (stage) => {
+    cloudSyncProgress = { ...cloudSyncProgress, stage, at: new Date().toISOString() };
+  };
+  stopCloudSync(onProgress)
+    .then(result => {
+      cloudSyncProgress = { ...cloudSyncProgress, stage: '完成', done: true, result, at: new Date().toISOString() };
+    })
+    .catch(err => {
+      cloudSyncProgress = { ...cloudSyncProgress, stage: '失败', done: true, error: friendlyError(err), at: new Date().toISOString() };
+    });
+  res.json({ success: true, started: true });
+});
+
+app.get('/api/xbox/stop-cloud-sync/status', (req, res) => {
+  res.json({ success: true, ...cloudSyncProgress });
 });
 
 // API: Identify a source path, resolve both platform paths, and migrate in one shot.
@@ -618,33 +718,21 @@ app.post('/api/identify-and-migrate', async (req, res) => {
       return res.status(400).json({ success: false, error: '缺少或无效的 direction' });
     }
 
-    // Cloud-overwrite guard — same as /api/migrate. Xbox app auto-closes.
-    const idTargetSide = direction === 'xbox_to_steam' ? 'steam' : 'xbox';
-    const idPlatform = checkPlatformClient(idTargetSide);
-    if (idPlatform.running) {
-      if (idTargetSide === 'xbox') {
-        const closed = closePlatformClient('xbox');
-        if (closed.stillRunning.length > 0) {
-          return res.status(409).json({
-            success: false,
-            code: 'PLATFORM_RUNNING',
-            error: `已尝试自动关闭 Xbox 应用但仍有进程未退出（${closed.stillRunning.join('、')}）。${closed.hint ? closed.hint + '。' : '请手动退出 Xbox 应用后'}重试。`
-          });
-        }
-      } else {
-        return res.status(409).json({
-          success: false,
-          code: 'PLATFORM_RUNNING',
-          error: `检测到 Steam 客户端正在运行。为防止云同步覆盖刚移植的存档，请完全退出 Steam 后重试。`
-        });
-      }
-    }
-
+    // Identify first so the shared preflight can also check the game's own
+    // processes (the picked source path is our only clue at this point).
     const idResult = identifySavePath(sourcePath);
     const topMatch = idResult.matches && idResult.matches[0];
 
     // Full DB record (carries per-game rename maps that a bare match lacks).
     const gameRecord = topMatch ? findGameById(topMatch.id) : null;
+
+    // Cloud-overwrite + game-process guard, shared with every write route.
+    const idTargetSide = direction === 'xbox_to_steam' ? 'steam' : 'xbox';
+    if (sendPreflightError(res, await preflightWrite({
+      targetSide: idTargetSide,
+      gameName: topMatch ? topMatch.name : '',
+      processNames: gameRecord && gameRecord.processNames ? gameRecord.processNames : [],
+    }))) return;
 
     // Resolve counterpart (and confirm the chosen sides) via the identified game.
     let counterpart = null;
@@ -674,18 +762,6 @@ app.post('/api/identify-and-migrate', async (req, res) => {
       });
     }
 
-    let backupInfo = null;
-    // Always back up the side that is about to be OVERWRITTEN, not the source.
-    if (direction === 'xbox_to_steam') {
-      if (fs.existsSync(steamPath)) backupInfo = await createBackup(steamPath, 'identify', 'steam', { restoreTargetPath: steamPath, direction, gameName: topMatch ? topMatch.name : null });
-    } else if (fs.existsSync(xboxPath)) {
-      backupInfo = await createBackup(xboxPath, 'identify', 'xbox', { restoreTargetPath: xboxPath, direction, gameName: topMatch ? topMatch.name : null });
-    }
-
-    const result = direction === 'xbox_to_steam'
-      ? await extractWgsToFolder(xboxPath, steamPath)
-      : null;
-
     // Identify-only (Category C) games are recognized for identification but
     // have no verified steam↔xbox layout — surface that in the report so the
     // UI can warn instead of claiming a sure success.
@@ -703,7 +779,9 @@ app.post('/api/identify-and-migrate', async (req, res) => {
       writeRuleNote: (ruleSource && ruleSource.xboxWriteRule && ruleSource.xboxWriteRule.note) || null,
     };
 
-    // Hard gate for conversion-required games (both directions — Palworld etc.).
+    // HARD GATES FIRST. Refusing after createBackup/extractWgsToFolder meant a
+    // Palworld "已阻止写入保护你的存档" response had already overwritten the
+    // Steam side. Nothing below this point runs for a refused game.
     const convRefusal = migrationRefusalFor(ruleSource);
     if (convRefusal) {
       return res.status(400).json({
@@ -712,6 +790,25 @@ app.post('/api/identify-and-migrate', async (req, res) => {
         error: `《${topMatch ? topMatch.name : '游戏'}》${convRefusal}`
       });
     }
+    if (direction === 'steam_to_xbox' && ruleSource && ruleSource.steamXboxByteIncompatible) {
+      return res.status(400).json({
+        success: false,
+        code: 'BYTE_INCOMPATIBLE',
+        error: `《${topMatch ? topMatch.name : '游戏'}》该游戏经实测确认 Steam 与 Xbox 端存档字节格式不兼容（移植后游戏无法读取、启动黑屏），已阻止写入以保护你的 Xbox 存档。可用 Xbox→Steam 方向提取备份，或等待后续版本支持字节转换。`
+      });
+    }
+
+    let backupInfo = null;
+    // Always back up the side that is about to be OVERWRITTEN, not the source.
+    if (direction === 'xbox_to_steam') {
+      if (fs.existsSync(steamPath)) backupInfo = await backupAndPrune(steamPath, 'identify', 'steam', { restoreTargetPath: steamPath, direction, gameName: topMatch ? topMatch.name : null });
+    } else if (fs.existsSync(xboxPath)) {
+      backupInfo = await backupAndPrune(xboxPath, 'identify', 'xbox', { restoreTargetPath: xboxPath, direction, gameName: topMatch ? topMatch.name : null });
+    }
+
+    const result = direction === 'xbox_to_steam'
+      ? await extractWgsToFolder(xboxPath, steamPath)
+      : null;
 
     if (direction === 'xbox_to_steam') {
       if (result.extractedFiles.length === 0) {
@@ -721,7 +818,7 @@ app.post('/api/identify-and-migrate', async (req, res) => {
       // Audit report: landed name + size + MD5 match vs the source blob, then
       // universal Steam cloud-mirror sync (same save names under userdata).
       const files = renamed.map(r => {
-        let md5Match = 'n/a';
+        let md5Match = 'unchecked';
         if (r.srcMd5 && r.size > 0) {
           md5Match = fileMd5(r.path) === r.srcMd5;
         }
@@ -758,11 +855,7 @@ app.post('/api/identify-and-migrate', async (req, res) => {
       if (filesInSteamDir.length === 0) {
         return res.status(400).json({ success: false, error: `Steam 存档目录为空：${steamPath}` });
       }
-      const pkgName = counterpart && counterpart.xboxPackageFolder
-        ? counterpart.xboxPackageFolder
-        : 'GamePassSave';
       const { result: pkgResult, verify, refused } = writeSteamToXbox(filesInSteamDir, xboxPath, {
-        packageName: pkgName,
         byteIncompatible: Boolean(gameRecord && gameRecord.steamXboxByteIncompatible),
       });
       if (refused) {
@@ -816,39 +909,13 @@ app.post('/api/migrate', async (req, res) => {
       return res.status(400).json({ success: false, code: 'CONVERSION_REQUIRED', error: `《${game.name}》${refusal}` });
     }
 
-    const processCheck = checkGameRunning(game.processNames || []);
-    if (processCheck.running) {
-      return res.status(409).json({
-        success: false,
-        code: 'GAME_RUNNING',
-        error: `检测到《${game.name}》仍在运行（${processCheck.matchedNames.join('、')}）。请先完全退出游戏后再执行存档移植。`
-      });
-    }
-
-    // Cloud-overwrite guard: the client that owns the TARGET side's cloud sync
-    // must be closed, or it can push its in-memory stale cloud state right back
-    // over the files we're about to write. Xbox app is auto-closed; Steam stays
-    // a manual step (users may be mid-download).
+    // Game + cloud-sync owner guards (shared with every write route).
     const targetSide = direction === 'xbox_to_steam' ? 'steam' : 'xbox';
-    const platform = checkPlatformClient(targetSide);
-    if (platform.running) {
-      if (targetSide === 'xbox') {
-        const closed = closePlatformClient('xbox');
-        if (closed.stillRunning.length > 0) {
-          return res.status(409).json({
-            success: false,
-            code: 'PLATFORM_RUNNING',
-            error: `已尝试自动关闭 Xbox 应用但仍有进程未退出（${closed.stillRunning.join('、')}）。${closed.hint ? closed.hint + '。' : '请手动退出 Xbox 应用（右下角托盘图标 → 退出）后'}重试。`
-          });
-        }
-      } else {
-        return res.status(409).json({
-          success: false,
-          code: 'PLATFORM_RUNNING',
-          error: `检测到 Steam 客户端正在运行。为防止云同步把旧存档覆盖回刚移植的文件，请完全退出 Steam（右下角托盘图标 → 退出）后重试。`
-        });
-      }
-    }
+    if (sendPreflightError(res, await preflightWrite({
+      targetSide,
+      gameName: game.name,
+      processNames: game.processNames || [],
+    }))) return;
 
     const steamPath = customSteamPath || game.steamSavePath;
     const xboxPath = customXboxPath || game.xboxWgsPath;
@@ -861,7 +928,7 @@ app.post('/api/migrate', async (req, res) => {
       }
 
       if (fs.existsSync(steamPath)) {
-        backupInfo = await createBackup(steamPath, gameId, 'steam', { restoreTargetPath: steamPath, direction, gameName: game.name });
+        backupInfo = await backupAndPrune(steamPath, gameId, 'steam', { restoreTargetPath: steamPath, direction, gameName: game.name });
       }
 
       const result = extractWgsToFolder(xboxPath, steamPath);
@@ -876,7 +943,7 @@ const renamed = applySteamFileNameNormalization(result.extractedFiles, steamPath
       // cloud mirrors of the same save names in sync (universal multi-location
       // rule — otherwise cloud sync can revert the migration).
       const files = renamed.map(r => {
-        let md5Match = 'n/a';
+        let md5Match = 'unchecked';
         if (r.srcMd5 && r.size > 0) {
           md5Match = fileMd5(r.path) === r.srcMd5;
         }
@@ -884,12 +951,10 @@ const renamed = applySteamFileNameNormalization(result.extractedFiles, steamPath
       });
       const mirrors = syncSteamCloudMirrors(files, steamPath, game.steamAppId);
       if (mirrors.length > 0) files.push(...mirrors);
-      const allLanded = files.length > 0 && files.every(f => f.size > 0);
-      const allHashOk = files.every(f => f.md5Match === 'n/a' || f.md5Match === true);
       const verify = buildVerify(null, {
         files,
         targetPath: steamPath,
-        note: '文件已写入 Steam 存档目录，且尺寸非 0、内容 MD5 与来源一致。存档能否被游戏读取，需启动游戏读档确认一次（各游戏存档字节格式由游戏自身决定）。'
+        note: '文件已写入 Steam 存档目录且尺寸非 0；MD5 对比结果见每项明细（未校验项不代表一致）。存档能否被游戏读取，需启动游戏读档确认一次（各游戏存档字节格式由游戏自身决定）。'
       });
 
       return res.json({
@@ -912,7 +977,7 @@ const renamed = applySteamFileNameNormalization(result.extractedFiles, steamPath
       }
 
       if (fs.existsSync(xboxPath)) {
-        backupInfo = await createBackup(xboxPath, gameId, 'xbox', { restoreTargetPath: xboxPath, direction, gameName: game.name });
+        backupInfo = await backupAndPrune(xboxPath, gameId, 'xbox', { restoreTargetPath: xboxPath, direction, gameName: game.name });
       }
 
       const filesInSteamDir = fs.readdirSync(steamPath)
@@ -926,9 +991,7 @@ const renamed = applySteamFileNameNormalization(result.extractedFiles, steamPath
         return res.status(400).json({ success: false, error: `Steam 存档目录中未找到有效文件：${steamPath}` });
       }
 
-const pkgName = game.xboxPackageFolder || game.xboxPackageName.replace('*', 'Save');
       const { result, verify, refused } = writeSteamToXbox(filesInSteamDir, xboxPath, {
-        packageName: pkgName,
         byteIncompatible: Boolean(game.steamXboxByteIncompatible),
       });
       if (refused) {
@@ -1039,7 +1102,7 @@ app.post('/api/backups/open', (req, res) => {
   try {
     const backupPath = req.body?.backupPath;
     if (!backupPath || !fs.existsSync(backupPath)) return res.status(400).json({ success: false, error: '备份文件不存在' });
-    exec(`explorer.exe /select,"${backupPath}"`);
+    execFile('explorer.exe', [`/select,"${backupPath}"`]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: friendlyError(err) });
@@ -1152,6 +1215,9 @@ app.post('/api/ai/explain-failure', async (req, res) => {
           answer: result.text,
           model: result.model,
           title: req.body?.title || null,
+          replaceTurns: req.body?.replaceTurns === true,
+          usage: result.usage || null,
+          contextTruncated: Boolean(result.contextTruncated),
         });
         sessionId = session?.id || null;
       }
@@ -1248,23 +1314,13 @@ app.post('/api/manual/extract', (req, res) => {
 // structure-preserving writer as the migration routes, and backs up the target
 // first — this route used to call the destructive rebuild with no backup at all.
 app.post('/api/manual/pack', async (req, res) => {
-  const { inputFolderPath, targetWgsFolderPath, packageName } = req.body;
+  const { inputFolderPath, targetWgsFolderPath } = req.body;
   if (!inputFolderPath || !targetWgsFolderPath) {
     return res.status(400).json({ success: false, error: 'Missing folder paths' });
   }
 
   try {
-    const packPlatform = checkPlatformClient('xbox');
-    if (packPlatform.running) {
-      const closed = closePlatformClient('xbox');
-      if (closed.stillRunning.length > 0) {
-        return res.status(409).json({
-          success: false,
-          code: 'PLATFORM_RUNNING',
-          error: `已尝试自动关闭 Xbox 应用但仍有进程未退出（${closed.stillRunning.join('、')}）。${closed.hint ? closed.hint + '。' : '请手动退出 Xbox 应用后'}重试。`
-        });
-      }
-    }
+    if (sendPreflightError(res, await preflightWrite({ targetSide: 'xbox' }))) return;
 
     const files = fs.readdirSync(inputFolderPath)
       .filter(f => fs.statSync(path.join(inputFolderPath, f)).isFile())
@@ -1276,12 +1332,10 @@ app.post('/api/manual/pack', async (req, res) => {
 
     let backupInfo = null;
     if (fs.existsSync(targetWgsFolderPath)) {
-      backupInfo = await createBackup(targetWgsFolderPath, 'manual-pack', 'xbox', { restoreTargetPath: targetWgsFolderPath, direction: 'pack', gameName: null });
+      backupInfo = await backupAndPrune(targetWgsFolderPath, 'manual-pack', 'xbox', { restoreTargetPath: targetWgsFolderPath, direction: 'pack', gameName: null });
     }
 
-    const { result, verify, refused } = writeSteamToXbox(files, targetWgsFolderPath, {
-      packageName: packageName || 'ManualPackage',
-    });
+    const { result, verify, refused } = writeSteamToXbox(files, targetWgsFolderPath);
     if (refused) return res.status(400).json({ success: false, code: 'BYTE_INCOMPATIBLE', error: refused });
     res.json({ success: true, backup: backupInfo, verify, result });
   } catch (err) {
@@ -1305,6 +1359,9 @@ app.post('/api/copy-save', async (req, res) => {
   if (!['xbox', 'steam'].includes(sourceSide) || !['xbox', 'steam'].includes(targetSide)) {
     return res.status(400).json({ success: false, error: 'sourceSide / targetSide 必须为 xbox 或 steam' });
   }
+  // Same guards as /api/migrate: arbitrary-path copies must not run while the
+  // game or the target side's cloud client is alive.
+  if (sendPreflightError(res, await preflightWrite({ targetSide }))) return;
   try {
     if (path.resolve(sourcePath) === path.resolve(targetPath)) {
       return res.status(400).json({ success: false, error: '源目录与目标目录相同，复制没有意义。' });
@@ -1323,7 +1380,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `目标 WGS 目录还没有该游戏自己生成的存档结构。工具不凭文件名猜测并新建容器（那是游戏读不到存档的主要原因），请先启动一次游戏让 Xbox 端生成结构。` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-xbox-xbox', 'xbox', { restoreTargetPath: targetPath, direction: 'xbox_to_xbox', gameName: null });
+        backupInfo = await backupAndPrune(targetPath, 'copy-xbox-xbox', 'xbox', { restoreTargetPath: targetPath, direction: 'xbox_to_xbox', gameName: null });
       }
       const { parseContainersIndexDetailed, parseContainerFolderFiles } = await import('./wgsEngine.js');
       const detailed = parseContainersIndexDetailed(path.join(sourcePath, 'containers.index'));
@@ -1358,7 +1415,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `源目录中没有任何文件：${sourcePath}` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-steam-steam', 'steam', { restoreTargetPath: targetPath, direction: 'steam_to_steam', gameName: null });
+        backupInfo = await backupAndPrune(targetPath, 'copy-steam-steam', 'steam', { restoreTargetPath: targetPath, direction: 'steam_to_steam', gameName: null });
       } else {
         fs.mkdirSync(targetPath, { recursive: true });
       }
@@ -1367,18 +1424,17 @@ app.post('/api/copy-save', async (req, res) => {
         const dest = path.join(targetPath, path.basename(f));
         copyFileAtomic(f, dest);
         try { fs.utimesSync(dest, new Date(), new Date()); } catch {}
-        let md5Match = 'n/a';
+        let md5Match = 'unchecked';
         try { md5Match = fileMd5(dest) === fileMd5(f); } catch {}
         landed.push({ name: path.basename(f), original: path.basename(f), size: fs.statSync(dest).size, path: dest, md5Match });
       }
       const mirrors = syncSteamCloudMirrors(landed, targetPath, targetSteamAppId);
       if (mirrors.length > 0) landed.push(...mirrors);
-      const verify = {
-        ok: landed.length > 0 && landed.every(f => f.size > 0),
-        targetPath,
+      const verify = buildVerify(null, {
         files: landed,
-        note: '文件已复制到目标 Steam 存档目录；同名云镜像（如 userdata\\<账号>\\<appid>\\remote\\ 中的文件）也已同步更新。',
-      };
+        targetPath,
+        note: '文件已复制到目标 Steam 存档目录；同名云镜像（如 userdata\\<账号>\\<appid>\\remote\\ 中的文件）也已同步更新。MD5 对比结果见明细（未校验项不代表一致）。',
+      });
       return res.json({
         success: true,
         message: `完成 Steam→Steam 同端复制（${landed.length - mirrors.length} 个文件${mirrors.length ? ` + ${mirrors.length} 个云镜像` : ''}）。`,
@@ -1399,7 +1455,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `源 WGS 目录无效或缺少 containers.index：${sourcePath}` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-xbox-steam', 'steam', { restoreTargetPath: targetPath, direction: 'xbox_to_steam', gameName: null });
+        backupInfo = await backupAndPrune(targetPath, 'copy-xbox-steam', 'steam', { restoreTargetPath: targetPath, direction: 'xbox_to_steam', gameName: null });
       } else {
         fs.mkdirSync(targetPath, { recursive: true });
       }
@@ -1408,18 +1464,17 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(500).json({ success: false, error: '未能从 Xbox WGS 目录提取到任何存档文件。' });
       }
       const files = result.extractedFiles.map(f => {
-        let md5Match = 'n/a';
+        let md5Match = 'unchecked';
         if (f.md5 && f.size > 0 && fs.existsSync(f.extractedPath)) md5Match = fileMd5(f.extractedPath) === f.md5;
         return { name: f.logicalFileName, original: f.logicalFileName, size: f.size, path: f.extractedPath, md5Match };
       });
       const mirrors = syncSteamCloudMirrors(files, targetPath, targetSteamAppId);
       if (mirrors.length > 0) files.push(...mirrors);
-      const verify = {
-        ok: files.length > 0 && files.every(f => f.size > 0),
-        targetPath,
+      const verify = buildVerify(null, {
         files,
-        note: '已从 Xbox WGS 提取并写入目标 Steam 目录，尺寸非 0、内容 MD5 与来源一致。',
-      };
+        targetPath,
+        note: '已从 Xbox WGS 提取并写入目标 Steam 目录，尺寸非 0；MD5 对比结果见明细（未校验项不代表一致）。',
+      });
       return res.json({
         success: true,
         message: `完成 Xbox→Steam 提取（${files.length - mirrors.length} 个文件${mirrors.length ? ` + ${mirrors.length} 个云镜像` : ''}）。`,
@@ -1445,7 +1500,7 @@ app.post('/api/copy-save', async (req, res) => {
         return res.status(400).json({ success: false, error: `目标 WGS 目录还没有该游戏自己生成的存档结构。工具不凭文件名猜测并新建容器，请先在 Xbox 端启动一次游戏让游戏建立结构。` });
       }
       if (fs.existsSync(targetPath)) {
-        backupInfo = await createBackup(targetPath, 'copy-steam-xbox', 'xbox', { restoreTargetPath: targetPath, direction: 'steam_to_xbox', gameName: null });
+        backupInfo = await backupAndPrune(targetPath, 'copy-steam-xbox', 'xbox', { restoreTargetPath: targetPath, direction: 'steam_to_xbox', gameName: null });
       }
       const { result, verify, refused } = writeSteamToXbox(inputFiles, targetPath, { byteIncompatible: false });
       if (refused) return res.status(400).json({ success: false, code: 'BYTE_INCOMPATIBLE', error: refused });
@@ -1489,10 +1544,6 @@ app.post('/api/scan-folder', (req, res) => {
     return res.status(400).json({ success: false, error: '请提供要扫描的文件夹路径' });
   }
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const { identifySavePath } = require('./gameIdentifier.js');
-
     if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
       return res.status(400).json({ success: false, error: '路径不存在或不是文件夹' });
     }
@@ -1519,15 +1570,22 @@ app.post('/api/scan-folder', (req, res) => {
 
         if (files.length === 0) continue;
 
-        // 尝试识别
+        // identifySavePath returns { side, matches:[{id,name,...}] }, not
+        // flat gameId/gameName fields. Use the top match so scanned rows can
+        // be resolved to both ends by the UI.
         const identified = identifySavePath(dir);
+        const topMatch = identified && identified.matches && identified.matches[0];
+        let counterpartForScan = null;
+        if (topMatch) {
+          try { counterpartForScan = resolveCounterpartPath(topMatch.id); } catch {}
+        }
         const entry = {
           folderPath: dir,
           files,
-          matchedGameId: identified?.gameId || null,
-          matchedGameName: identified?.gameName || null,
-          steamSavePath: identified?.steamSavePath || null,
-          xboxWgsPath: identified?.xboxWgsPath || null,
+          matchedGameId: topMatch ? topMatch.id : null,
+          matchedGameName: topMatch ? topMatch.name : null,
+          steamSavePath: counterpartForScan?.steamSavePath || null,
+          xboxWgsPath: counterpartForScan?.xboxWgsPath || null,
         };
 
         addScannedGame(entry);
@@ -1569,47 +1627,6 @@ app.delete('/api/scanned-games', (req, res) => {
     clearScannedGames();
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ success: false, error: friendlyError(err) });
-  }
-});
-
-// API: Read-only "portability test / preview" (dry run, no writes). Runs the
-// SAME slot-matching the real migration uses and reports, for BOTH directions,
-// what would land where and why anything is refused/downgraded. Safe to call
-// repeatedly — it is the "移植测试" button's backend.
-app.post('/api/portability-report', (req, res) => {
-  const { gameId, customSteamPath, customXboxPath } = req.body || {};
-  if (!gameId) {
-    return res.status(400).json({ success: false, error: '请提供 gameId' });
-  }
-  try {
-    const gamesData = scanInstalledGames();
-    const game = gamesData.games.find(g => g.id === gameId);
-    if (!game) {
-      return res.status(404).json({ success: false, error: `未找到游戏 ${gameId}（可能本机未检测到）` });
-    }
-    const steamPath = customSteamPath || game.steamSavePath;
-    const xboxPath = customXboxPath || game.xboxWgsPath;
-    const s2x = predictSteamToXbox(game, steamPath, xboxPath);
-    const x2s = predictXboxToSteam(game, steamPath, xboxPath);
-    res.json({
-      success: true,
-      game: {
-        id: game.id,
-        name: game.name,
-        category: game.category,
-        needsConversionTool: game.needsConversionTool || null,
-        accountBound: Boolean(game.accountBound),
-        identifyOnly: game.category === 'C',
-      },
-      steamPath,
-      xboxPath,
-      steamToXbox: s2x,
-      xboxToSteam: x2s,
-      note: '预演结果：写入是否落对槽位已验证（同名/版本后缀/容器名三条名字派生通道），但游戏是否接受外来字节（加密/校验和/账号绑定）仍需进游戏读档确认一次。',
-    });
-  } catch (err) {
-    console.error('Portability-report Error:', err);
     res.status(500).json({ success: false, error: friendlyError(err) });
   }
 });
@@ -1661,7 +1678,7 @@ app.post('/api/portability-report', (req, res) => {
 // matching WGS engine direction. Package name for packing is inferred from
 // the WGS path (Packages\<PackageFamilyName> segment) when not provided.
 app.post('/api/manual/migrate', async (req, res) => {
-  const { steamPath, xboxPath, direction, packageName } = req.body || {};
+  const { steamPath, xboxPath, direction } = req.body || {};
 
   if (!steamPath || !xboxPath) {
     return res.status(400).json({ success: false, error: '请同时指定 Steam 存档目录与 Xbox WGS 目录' });
@@ -1670,36 +1687,11 @@ app.post('/api/manual/migrate', async (req, res) => {
     return res.status(400).json({ success: false, error: '无效的移植方向' });
   }
 
-  // Cloud-overwrite guard — same as /api/migrate. Xbox app auto-closes.
+  // Cloud-overwrite guard — same shared preflight as /api/migrate.
   const manualTargetSide = direction === 'xbox_to_steam' ? 'steam' : 'xbox';
-  const manualPlatform = checkPlatformClient(manualTargetSide);
-  if (manualPlatform.running) {
-    if (manualTargetSide === 'xbox') {
-      const closed = closePlatformClient('xbox');
-      if (closed.stillRunning.length > 0) {
-        return res.status(409).json({
-          success: false,
-          code: 'PLATFORM_RUNNING',
-          error: `已尝试自动关闭 Xbox 应用但仍有进程未退出（${closed.stillRunning.join('、')}）。${closed.hint ? closed.hint + '。' : '请手动退出 Xbox 应用后'}重试。`
-        });
-      }
-    } else {
-      return res.status(409).json({
-        success: false,
-        code: 'PLATFORM_RUNNING',
-        error: `检测到 Steam 客户端正在运行。为防止云同步把旧存档覆盖回刚移植的文件，请完全退出 Steam（右下角托盘图标 → 退出）后重试。`
-      });
-    }
-  }
+  if (sendPreflightError(res, await preflightWrite({ targetSide: manualTargetSide }))) return;
 
   try {
-    // Infer the Package Family Name from the WGS path
-    // (...\Packages\<PackageFamilyName>\SystemAppData\wgs\<guid>)
-    const inferPackageName = (wgsPath) => {
-      const pkgMatch = wgsPath.match(/[\\\/]Packages[\\\/]([^\\\/]+?)(?:[\\\/]|$)/i);
-      return pkgMatch ? pkgMatch[1] : (packageName || 'ManualPackage');
-    };
-
     // One game-record lookup for both directions: rename maps, per-game write
     // rules and hard gates all follow the WGS folder the user picked.
     const manualGame = inferGameRecordFromWgsPath(xboxPath);
@@ -1727,7 +1719,7 @@ app.post('/api/manual/migrate', async (req, res) => {
 
       let backupInfo = null;
       if (fs.existsSync(steamPath)) {
-        backupInfo = await createBackup(steamPath, 'manual', 'steam', { restoreTargetPath: steamPath, direction, gameName: null });
+        backupInfo = await backupAndPrune(steamPath, 'manual', 'steam', { restoreTargetPath: steamPath, direction, gameName: null });
       }
 
       const result = extractWgsToFolder(xboxPath, steamPath);
@@ -1739,7 +1731,7 @@ app.post('/api/manual/migrate', async (req, res) => {
       // Audit report: landed name + size + MD5 match vs the source blob, then
       // universal Steam cloud-mirror sync (same save names under userdata).
       const files = result.extractedFiles.map(f => {
-        let md5Match = 'n/a';
+        let md5Match = 'unchecked';
         if (f.md5 && f.size > 0 && fs.existsSync(f.extractedPath)) {
           md5Match = fileMd5(f.extractedPath) === f.md5;
         }
@@ -1750,7 +1742,7 @@ app.post('/api/manual/migrate', async (req, res) => {
       const verify = buildVerify(null, {
         files,
         targetPath: steamPath,
-        note: '文件已写入指定 Steam 存档目录，且尺寸非 0、内容 MD5 与来源一致。存档能否被游戏读取，需启动游戏读档确认一次。'
+        note: '文件已写入指定 Steam 存档目录且尺寸非 0；MD5 对比结果见明细（未校验项不代表一致）。存档能否被游戏读取，需启动游戏读档确认一次。'
       });
 
       return res.json({
@@ -1785,13 +1777,10 @@ app.post('/api/manual/migrate', async (req, res) => {
 
       let backupInfo = null;
       if (fs.existsSync(xboxPath)) {
-        backupInfo = await createBackup(xboxPath, 'manual', 'xbox', { restoreTargetPath: xboxPath, direction, gameName: null });
+        backupInfo = await backupAndPrune(xboxPath, 'manual', 'xbox', { restoreTargetPath: xboxPath, direction, gameName: null });
       }
 
-      const pkgName = inferPackageName(xboxPath);
-      const { result, verify, refused } = writeSteamToXbox(filesInSteamDir, xboxPath, {
-        packageName: pkgName,
-      });
+      const { result, verify, refused } = writeSteamToXbox(filesInSteamDir, xboxPath);
       // writeSteamToXbox refuses to write when the target has no game-generated
       // WGS structure. Ignoring `refused` here reported "写入成功" with verify:null,
       // which graded as needs-review and hid the fact that nothing was written.
@@ -1801,7 +1790,7 @@ app.post('/api/manual/migrate', async (req, res) => {
 
       return res.json({
         success: true,
-        message: `成功将 Steam 存档写入 Xbox 目录（包名：${pkgName}）！`,
+        message: '成功将 Steam 存档写入 Xbox 目录！',
         warnings: [
           '首次启动 Xbox 游戏时请留意云同步冲突提示。若出现选择框，请务必选择"使用本地存档"。',
           '建议先禁用云同步启动一次游戏确认存档无误，再恢复同步。'
@@ -1842,7 +1831,7 @@ export { app, PORT };
 // serverApp.listen() itself. In dev mode, `npm run server` runs this directly.
 const isMainModule = !process.versions.electron;
 if (isMainModule) {
-  app.listen(PORT, () => {
+  app.listen(PORT, '127.0.0.1', () => {
     console.log(`[Xbox-Steam Migrator Backend] Running on http://localhost:${PORT}`);
   });
 }

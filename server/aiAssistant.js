@@ -74,10 +74,18 @@ function maskPath(p) {
   return `…\\${parts.slice(-2).join('\\')}`;
 }
 
+/** Mask Windows drive / UNC paths embedded in free text (errors, logs, notes). */
+function maskText(value) {
+  if (typeof value !== 'string' || !value) return value;
+  return value
+    .replace(/[A-Za-z]:\\[^\s"',;)\]}]+/g, (p) => maskPath(p) || '')
+    .replace(/\\\\[^\s"',;)\]}]+/g, (p) => maskPath(p) || '');
+}
+
 /** Trim a verify report down to what matters for diagnosis. */
 function slimVerify(verify) {
   if (!verify || typeof verify !== 'object') return null;
-  const out = { ok: verify.ok, note: verify.note, targetPath: maskPath(verify.targetPath) };
+  const out = { ok: verify.ok, note: maskText(verify.note), targetPath: maskPath(verify.targetPath) };
   if (Array.isArray(verify.files)) {
     out.files = verify.files.slice(0, 20).map(f => ({
       name: f.name,
@@ -103,16 +111,18 @@ function buildUserMessage(context = {}, logs = []) {
   const facts = {
     stage: context.stage || null,
     code: context.code || null,
-    error: context.error || null,
+    // Backend error strings interpolate absolute paths; mask them too or the
+    // "only last two path segments" privacy promise is silently broken.
+    error: maskText(context.error) || null,
     gameName: context.gameName || null,
     direction: context.direction || null,
     steamPath: maskPath(context.steamPath),
     xboxPath: maskPath(context.xboxPath),
     verify: slimVerify(context.verify),
-    warnings: Array.isArray(context.warnings) ? context.warnings.slice(0, 10) : [],
+    warnings: Array.isArray(context.warnings) ? context.warnings.slice(0, 10).map(maskText) : [],
   };
   const logLines = logs.length
-    ? `\n\n最近的运行日志（最新在后）：\n${logs.map(l => `[${l.type || 'info'}] ${l.message}`).join('\n')}`
+    ? `\n\n最近的运行日志（最新在后）：\n${logs.map(l => `[${l.type || 'info'}] ${maskText(l.message)}`).join('\n')}`
     : '';
   return `以下是一次存档移植失败的现场信息（JSON）：\n\n${JSON.stringify(facts, null, 2)}${logLines}\n\n请诊断这次失败。`;
 }
@@ -164,6 +174,12 @@ export async function explainFailure(context, options = {}) {
 
   // 多轮对话：system + 首轮现场信息 + 历史追问
   const history = Array.isArray(options.messages) ? options.messages : [];
+  // Keep the prompt within a sane context budget. Older turns are dropped
+  // silently from the model input (they stay in the saved session) and the
+  // caller is told via contextTruncated so the UI can warn the user.
+  const MAX_HISTORY_TURNS = 16;
+  const contextTruncated = history.length > MAX_HISTORY_TURNS;
+  const effectiveHistory = contextTruncated ? history.slice(-MAX_HISTORY_TURNS) : history;
   const logs = Array.isArray(options.logs) ? options.logs.slice(-30) : [];
   const question = typeof options.question === 'string' ? options.question.trim() : '';
 
@@ -177,11 +193,11 @@ export async function explainFailure(context, options = {}) {
   if (general) {
     // 通用问答：历史为空时用 question 作首轮；历史非空时历史里已含首轮问题，
     // 再插一次会重复。
-    if (history.length === 0) messages.push({ role: 'user', content: question });
+    if (effectiveHistory.length === 0) messages.push({ role: 'user', content: question });
   } else {
     messages.push({ role: 'user', content: buildUserMessage(context, logs) });
   }
-  for (const m of history) {
+  for (const m of effectiveHistory) {
     if (!m || typeof m.content !== 'string') continue;
     if (m.role !== 'user' && m.role !== 'assistant') continue;
     messages.push({ role: m.role, content: m.content.slice(0, 4000) });
@@ -236,7 +252,12 @@ export async function explainFailure(context, options = {}) {
     throw new AiError('AI_BAD_RESPONSE', 'AI 响应中没有可用的回答内容（choices[0].message.content 为空）');
   }
 
-  return { text: text.trim(), model: data.model || settings.model };
+  return {
+    text: text.trim(),
+    model: data.model || settings.model,
+    usage: data.usage || null,
+    contextTruncated,
+  };
 }
 
 /**
@@ -302,4 +323,4 @@ export async function testAiConnection(overrides = {}) {
   }
 }
 
-export { AiError, maskPath, slimVerify };
+export { AiError, maskPath, maskText, slimVerify, buildUserMessage };

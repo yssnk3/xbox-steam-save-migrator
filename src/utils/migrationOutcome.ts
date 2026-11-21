@@ -27,7 +27,10 @@ export function migrationOutcome(
   // freshly rebuilt structure uses guessed container names the game may ignore.
   const partialTransfer = Boolean(verify.unusedSteamFiles && verify.unusedSteamFiles.length > 0);
   const rebuiltStructure = verify.mode === 'rebuild';
-  if (lowConfidence || identifyOnly || partialTransfer || rebuiltStructure) return 'needs-review';
+  // 'unchecked' means no source hash was available to compare. That is not a
+  // pass — never present it as a clean success.
+  const uncheckedHash = Boolean(verify.hashUnchecked);
+  if (lowConfidence || identifyOnly || partialTransfer || rebuiltStructure || uncheckedHash) return 'needs-review';
   return 'success';
 }
 
@@ -48,6 +51,9 @@ export function outcomeText(
       }
       if (verify?.mode === 'rebuild') {
         return `${subject}已写入，但对端此前没有存档结构，容器名只能按文件名推断，游戏可能读不到——建议先在对端游戏里存一次档再重试`;
+      }
+      if (verify?.hashUnchecked) {
+        return `${subject}已写入，但部分文件无法与来源做 MD5 对比（未校验 ≠ 一致）——请查看日志并进游戏读档确认`;
       }
       return `${subject}文件已写入，但识别置信度低或该游戏未实测，可能无法被游戏读取——请务必进游戏读档确认`;
     }
