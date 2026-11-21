@@ -1,4 +1,8 @@
-import { execSync, execFileSync } from 'child_process';
+import { execSync, execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Process Checker — detect whether a game is currently running before migration.
@@ -108,7 +112,7 @@ export function checkPlatformClient(side) {
  * respawned by a helper while the app is shutting down.
  * @returns {{ attempted: boolean, killed: string[], stillRunning: string[], hint: string }}
  */
-export function closePlatformClient(side) {
+export async function closePlatformClient(side) {
   if (process.platform !== 'win32') {
     return { attempted: false, killed: [], stillRunning: [], hint: '' };
   }
@@ -143,7 +147,7 @@ export function closePlatformClient(side) {
 
     for (const t of targets) {
       try {
-        execFileSync('taskkill', ['/F', '/T', '/PID', t.pid], { encoding: 'utf8', timeout: 8000, windowsHide: true, stdio: 'pipe' });
+        await execFileAsync('taskkill', ['/F', '/T', '/PID', t.pid], { encoding: 'utf8', timeout: 8000, windowsHide: true });
         killedPids.add(t.pid);
         killedImages.add(t.image.replace(/\.exe$/i, ''));
       } catch (e) {
@@ -152,8 +156,9 @@ export function closePlatformClient(side) {
       }
     }
 
-    // Let the OS release handles before the next snapshot/re-check.
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500);
+    // Let the OS release handles before the next snapshot/re-check. Async so
+    // the Node event loop (and the UI) stays responsive during these 1.5s waits.
+    await sleep(1500);
   }
 
   const after = checkPlatformClient('xbox');
