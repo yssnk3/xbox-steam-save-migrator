@@ -93,6 +93,17 @@ export const AiConversation: React.FC<AiConversationProps> = ({ turns, compact }
             </div>
           )}
           <AiTurnView text={turn.answer} compact={compact} />
+          {(turn.model || turn.usage || turn.contextTruncated) && (
+            <div className="text-[10px] text-ink-faint flex items-center gap-2 flex-wrap">
+              {turn.model && <span>模型 {turn.model}</span>}
+              {typeof turn.usage?.total_tokens === 'number' && (
+                <span>tokens {turn.usage.total_tokens}</span>
+              )}
+              {turn.contextTruncated && (
+                <span className="text-ink-warning">上下文已截断（早期轮次未发送给模型）</span>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </div>
